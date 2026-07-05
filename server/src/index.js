@@ -22,15 +22,24 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/todos', todoRoutes);
 
-const clientDist = path.join(__dirname, '../../client/dist');
+function resolveClientDist() {
+  const candidates = [
+    path.join(__dirname, '../client/dist'),      // Docker: /app/src → /app/client/dist
+    path.join(__dirname, '../../client/dist'),   // Dev local: server/src → client/dist
+  ];
+  return candidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) ?? candidates[1];
+}
+
+const clientDist = resolveClientDist();
 const indexHtml = path.join(clientDist, 'index.html');
 
 if (!fs.existsSync(indexHtml)) {
-  console.error('ERREUR: frontend manquant. Lancez "npm run build" dans client/ ou rebuild Docker.');
+  console.error('ERREUR: frontend manquant à', clientDist);
   app.get('/', (_req, res) => {
     res.status(503).send('Talkeo: frontend non compilé. Rebuild requis.');
   });
 } else {
+  console.log('Frontend servi depuis', clientDist);
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => {
     res.sendFile(indexHtml);
