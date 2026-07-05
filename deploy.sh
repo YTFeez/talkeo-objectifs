@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/talkeo}"
-REPO_URL="${REPO_URL:-https://github.com/YTFeez/talkeo.git}"
+REPO_URL="${REPO_URL:-https://github.com/YTFeez/talkeo-objectifs.git}"
 
 echo "==> Déploiement Talkeo"
 

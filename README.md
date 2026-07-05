@@ -42,7 +42,7 @@ sudo apt install -y nginx certbot python3-certbot-nginx git
 ### 2. Cloner et configurer
 
 ```bash
-git clone https://github.com/YTFeez/talkeo.git ~/talkeo
+git clone https://github.com/YTFeez/talkeo-objectifs.git ~/talkeo
 cd ~/talkeo
 cp .env.example .env
 nano .env   # codes secrets
