@@ -7,7 +7,7 @@ COPY server/package*.json ./server/
 RUN npm install --prefix client && npm install --prefix server
 
 COPY client/ ./client/
-RUN npm run build --prefix client
+RUN npm run build --prefix client && test -f /app/client/dist/index.html
 
 FROM node:22-alpine
 
