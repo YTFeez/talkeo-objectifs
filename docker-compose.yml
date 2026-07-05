@@ -1,0 +1,23 @@
+services:
+  talkeo:
+    build: .
+    container_name: talkeo
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PARENT_TOKEN=${PARENT_TOKEN:-parents2026}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-admin2026}
+      - DATA_DIR=/data
+    volumes:
+      - talkeo-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  talkeo-data:
+    name: talkeo-data
