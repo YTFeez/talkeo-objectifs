@@ -12,6 +12,7 @@ import {
   DURATION_HINTS,
   getStoredAuth,
   saveAuthor,
+  ROLE_LABELS,
 } from './api';
 import SettingsModal from './SettingsModal';
 
@@ -434,7 +435,7 @@ export default function Dashboard({ auth, onLogout }) {
           </div>
         )}
         <div className="file-bar">
-          <span className="user-pill">{auth.label}</span>
+          <span className="user-pill">{auth.role === 'admin' ? ROLE_LABELS.admin : auth.label}</span>
           <button type="button" className="btn btn-secondary" onClick={() => setShowSettings(true)}>
             Mot de passe
           </button>
@@ -443,7 +444,7 @@ export default function Dashboard({ auth, onLogout }) {
           </button>
         </div>
         <span className="meta">
-          {pendingCount} en attente · {isAdmin ? 'Espace Aronne' : 'Espace parents'}
+          {pendingCount} en attente · {isAdmin ? `Espace ${ROLE_LABELS.admin}` : 'Espace parents'}
         </span>
       </header>
 

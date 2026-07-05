@@ -3,6 +3,11 @@ const ROLE_KEY = 'talkeo-role';
 const LABEL_KEY = 'talkeo-label';
 const AUTHOR_KEY = 'talkeo-author';
 
+export const ROLE_LABELS = {
+  admin: 'Aronne',
+  parent: 'Parent',
+};
+
 const LEGACY_KEYS = {
   'parent-todos-token': TOKEN_KEY,
   'parent-todos-role': ROLE_KEY,
@@ -22,11 +27,35 @@ function migrateLegacyStorage() {
 
 migrateLegacyStorage();
 
+function normalizeLabel(role, label) {
+  if (role === 'admin') return ROLE_LABELS.admin;
+  if (label === 'Arron') return ROLE_LABELS.admin;
+  return label || ROLE_LABELS.parent;
+}
+
+function migrateStoredLabel() {
+  const role = localStorage.getItem(ROLE_KEY);
+  const label = localStorage.getItem(LABEL_KEY);
+  if (!role || !label) return;
+  const normalized = normalizeLabel(role, label);
+  if (normalized !== label) {
+    localStorage.setItem(LABEL_KEY, normalized);
+  }
+}
+
+migrateStoredLabel();
+
+export function getRoleLabel(role, label) {
+  return normalizeLabel(role, label);
+}
+
 export function getStoredAuth() {
+  const role = localStorage.getItem(ROLE_KEY);
+  const label = localStorage.getItem(LABEL_KEY);
   return {
     token: localStorage.getItem(TOKEN_KEY),
-    role: localStorage.getItem(ROLE_KEY),
-    label: localStorage.getItem(LABEL_KEY),
+    role,
+    label: normalizeLabel(role, label),
     author: localStorage.getItem(AUTHOR_KEY) || 'Maman',
   };
 }
@@ -34,7 +63,7 @@ export function getStoredAuth() {
 export function saveAuth(token, role, label) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(ROLE_KEY, role);
-  localStorage.setItem(LABEL_KEY, label);
+  localStorage.setItem(LABEL_KEY, normalizeLabel(role, label));
 }
 
 export function saveAuthor(author) {

@@ -4,8 +4,12 @@ import { verifyToken } from '../auth.js';
 import { authMiddleware } from '../auth.js';
 import { changePassword } from '../credentials.js';
 
-const router = Router();
+const ROLE_LABELS = {
+  admin: 'Aronne',
+  parent: 'Parent',
+};
 
+const router = Router();
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -22,9 +26,8 @@ router.post('/login', loginLimiter, (req, res) => {
 
   res.json({
     role,
-    label: role === 'admin' ? 'Aronne' : 'Parent',
-  });
-});
+    label: ROLE_LABELS[role] || 'Utilisateur',
+  });});
 
 router.post('/change-password', authMiddleware, loginLimiter, (req, res) => {
   const { currentPassword, newPassword } = req.body;

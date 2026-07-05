@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, saveAuth } from './api';
+import { api, saveAuth, getRoleLabel, ROLE_LABELS } from './api';
 
 export default function LoginPage({ onLogin }) {
   const [token, setToken] = useState('');
@@ -16,7 +16,7 @@ export default function LoginPage({ onLogin }) {
         body: JSON.stringify({ token: token.trim() }),
       });
       saveAuth(token.trim(), role, label);
-      onLogin({ role, label });
+      onLogin({ role, label: getRoleLabel(role, label) });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -52,8 +52,8 @@ export default function LoginPage({ onLogin }) {
             </button>
           </form>
           <div className="divider" />
-          <p className="hint"><strong>Parents</strong> — ajoutez des objectifs pour Aronne</p>
-          <p className="hint"><strong>Aronne</strong> — gérez et cochez les objectifs</p>
+          <p className="hint"><strong>Parents</strong> — ajoutez des objectifs pour {ROLE_LABELS.admin}</p>
+          <p className="hint"><strong>{ROLE_LABELS.admin}</strong> — gérez et cochez les objectifs</p>
         </div>
       </div>
     </div>

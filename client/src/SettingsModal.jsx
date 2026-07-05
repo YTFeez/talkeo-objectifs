@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { api, saveAuth, getStoredAuth } from './api';
+import { api, saveAuth, getStoredAuth, getRoleLabel } from './api';
 
 export default function SettingsModal({ onClose, onPasswordChanged }) {
   const { role, label } = getStoredAuth();
+  const displayLabel = getRoleLabel(role, label);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -53,7 +54,7 @@ export default function SettingsModal({ onClose, onPasswordChanged }) {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <p className="hint">Modifier votre code d&apos;accès ({label}).</p>
+            <p className="hint">Modifier votre code d&apos;accès ({displayLabel}).</p>
             <label className="field-label">
               Code actuel
               <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoFocus />
