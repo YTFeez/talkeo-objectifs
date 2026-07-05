@@ -25,45 +25,36 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="cursor-app login-app">
-      <header className="titlebar">
-        <div className="titlebar-menus">
-          <span>File</span><span>Edit</span><span>View</span><span>Help</span>
-        </div>
-        <div className="titlebar-center">Talkeo</div>
-        <div className="titlebar-actions" />
-      </header>
-
-      <div className="login-body">
-        <div className="login-card">
-          <div className="login-brand">
-            <div className="cursor-logo">T</div>
-            <div>
-              <h1>Talkeo</h1>
-              <p>Connectez-vous pour continuer</p>
-            </div>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="logo lg">T</div>
+          <div>
+            <h1>Talkeo</h1>
+            <p>Objectifs partagés en famille</p>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="login-form">
-            <label htmlFor="token">Code d&apos;accès</label>
-            <div className="composer-box login-input">
-              <input
-                id="token"
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Entrez votre code secret…"
-                autoFocus
-                required
-              />
-            </div>
-            {error && <p className="form-error">{error}</p>}
-            <button type="submit" className="btn-primary-inline full" disabled={loading}>
-              {loading ? 'Connexion…' : 'Continuer'}
-            </button>
-          </form>
+        <form onSubmit={handleSubmit} className="login-form">
+          <label htmlFor="token">Votre code d&apos;accès</label>
+          <input
+            id="token"
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Code secret"
+            autoFocus
+            required
+          />
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" className="btn-primary full" disabled={loading}>
+            {loading ? 'Connexion…' : 'Entrer'}
+          </button>
+        </form>
 
-          <p className="login-foot">Parents : utilisez le code qu&apos;Arron vous a donné.</p>
+        <div className="login-help">
+          <p><strong>Parents</strong> — ajoutez des objectifs pour Arron</p>
+          <p><strong>Arron</strong> — gérez et cochez les objectifs</p>
         </div>
       </div>
     </div>

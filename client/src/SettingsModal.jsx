@@ -48,7 +48,7 @@ export default function SettingsModal({ onClose, onPasswordChanged }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Paramètres</span>
+          <span className="modal-title">Changer le mot de passe</span>
           <button type="button" className="modal-close" onClick={onClose}>×</button>
         </div>
         <form onSubmit={handleSubmit} className="modal-body">
