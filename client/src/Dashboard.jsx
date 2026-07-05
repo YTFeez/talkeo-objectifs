@@ -17,6 +17,15 @@ import PocketView from './PocketView';
 import { useIsMobile } from './useMediaQuery';
 import { fromEventParts } from './api';
 
+const TASK_SUGGESTIONS = [
+  { title: 'Ranger la chambre', reward: 2.5, duration: 'normal', priority: 'normal' },
+  { title: 'Faire la vaisselle', reward: 1, duration: 'short', priority: 'normal' },
+  { title: 'Sortir le chien', reward: 1.5, duration: 'short', priority: 'high' },
+  { title: 'Devoirs du soir', reward: 3, duration: 'normal', priority: 'high' },
+  { title: 'Vider le lave-vaisselle', reward: 1, duration: 'short', priority: 'low' },
+  { title: 'Arroser les plantes', reward: 1, duration: 'short', priority: 'low' },
+];
+
 function ObjectiveFields({ values, onChange, compact, showReward }) {
   return (
     <div className={`objective-fields ${compact ? 'compact' : ''} ${showReward ? 'with-reward' : ''}`}>
@@ -119,6 +128,18 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
     }
   }
 
+  function applySuggestion(suggestion) {
+    setTitle(suggestion.title);
+    setFields((f) => ({
+      ...f,
+      reward: suggestion.reward,
+      duration: suggestion.duration,
+      priority: suggestion.priority,
+    }));
+    setOpen(true);
+    inputRef.current?.focus();
+  }
+
   return (
     <section className={`add-form-section ${isMobile ? 'add-form-mobile' : ''}`}>
       <h3>Nouvel objectif</h3>
@@ -153,6 +174,22 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
         </div>
         {error && <p className="form-error">{error}</p>}
       </form>
+      <div className="task-suggestions">
+        <span className="task-suggestions-label">Idées rapides :</span>
+        <div className="task-suggestions-list">
+          {TASK_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion.title}
+              type="button"
+              className="task-suggestion-btn"
+              onClick={() => applySuggestion(suggestion)}
+            >
+              {suggestion.title}
+              <span className="suggestion-reward">{formatMoney(suggestion.reward)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
@@ -434,6 +471,13 @@ export default function Dashboard({ auth, onLogout }) {
     loadData();
   }
 
+  async function handleDemoSeed() {
+    const { inserted } = await api('/todos/demo-seed', { method: 'POST' });
+    if (inserted > 0) {
+      loadData();
+    }
+  }
+
   async function handleEventDelete(id) {
     if (!confirm('Supprimer cet événement ?')) return;
     await api(`/events/${id}`, { method: 'DELETE' });
@@ -602,6 +646,15 @@ export default function Dashboard({ auth, onLogout }) {
             {isAdmin && filter === 'pending' && pendingCount > 0 && (
               <p className="admin-banner">
                 {pendingCount} objectif{pendingCount > 1 ? 's' : ''} en attente — triés par échéance et priorité.
+              </p>
+            )}
+
+            {isAdmin && (filter === 'pending' || filter === 'done' || filter === 'all') && (
+              <p className="admin-banner admin-banner-actions">
+                <span>Exemples de tâches préremplies (terminées et en attente).</span>
+                <button type="button" className="btn btn-secondary btn-touch" onClick={handleDemoSeed}>
+                  Charger les exemples
+                </button>
               </p>
             )}
 

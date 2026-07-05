@@ -4,6 +4,7 @@ import { authMiddleware, checkRole } from '../auth.js';
 import { hashPassword, verifyPassword } from '../credentials.js';
 import { logTodoAction, getHistory } from '../dailyLog.js';
 import { parseReward } from '../rewards.js';
+import { seedDemoTodos } from '../seedTodos.js';
 
 const router = Router();
 
@@ -89,6 +90,11 @@ function buildTodoUpdates(body, allowStatus, canEditReward) {
 router.get('/history', (req, res) => {
   const { days } = req.query;
   res.json({ history: getHistory(days) });
+});
+
+router.post('/demo-seed', checkRole('admin'), (_req, res) => {
+  const inserted = seedDemoTodos();
+  res.json({ inserted, ok: true });
 });
 
 router.get('/', (req, res) => {

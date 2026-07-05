@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js';
 import todoRoutes from './routes/todos.js';
 import eventRoutes from './routes/events.js';
 import rewardRoutes from './routes/rewards.js';
+import './seedTodos.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();

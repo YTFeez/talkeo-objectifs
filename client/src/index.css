@@ -1068,6 +1068,14 @@ select:focus {
   border-radius: var(--radius);
 }
 
+.admin-banner-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
 .objective-fields {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1111,6 +1119,49 @@ select:focus {
 .add-form-section h3 {
   margin: 0 0 var(--space-sm);
   font-size: 16px;
+}
+
+.task-suggestions {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.task-suggestions-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.task-suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.task-suggestion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: 999px;
+  background: var(--bg-editor);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-suggestion-btn:hover {
+  background: var(--fill-secondary);
+  border-color: var(--stroke-secondary);
+  color: var(--text-primary);
+}
+
+.suggestion-reward {
+  font-weight: 600;
+  color: var(--success);
+  font-size: 11px;
 }
 
 .sidebar-card .list-item-btn {
