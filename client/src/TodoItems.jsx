@@ -278,6 +278,11 @@ export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete,
           </span>
         )}
       </div>
+      {canValidate && todo.status === 'pending' && (
+        <button type="button" className="todo-validate-cta" onClick={() => onToggle(todo)}>
+          ✓ Marquer comme fait
+        </button>
+      )}
       <p className="todo-mobile-meta">
         <span>{todo.author}</span>
         <span className="meta-sep">·</span>

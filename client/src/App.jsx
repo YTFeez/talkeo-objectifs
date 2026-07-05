@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getStoredAuth, clearAuth, getRoleLabel } from './api';
+import { ToastProvider } from './useToast.jsx';
 import LoginPage from './LoginPage';
 import Dashboard from './Dashboard';
 
@@ -16,9 +17,13 @@ export default function App() {
     setAuth(null);
   }
 
-  if (!auth) {
-    return <LoginPage onLogin={setAuth} />;
-  }
-
-  return <Dashboard auth={auth} onLogout={handleLogout} />;
+  return (
+    <ToastProvider>
+      {!auth ? (
+        <LoginPage onLogin={setAuth} />
+      ) : (
+        <Dashboard auth={auth} onLogout={handleLogout} />
+      )}
+    </ToastProvider>
+  );
 }

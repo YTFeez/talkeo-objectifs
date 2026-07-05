@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, formatMoney, formatDate } from './api';
 
-export default function PocketView() {
+export default function PocketView({ isMobile }) {
   const [summary, setSummary] = useState(null);
   const [detail, setDetail] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -47,9 +47,7 @@ export default function PocketView() {
   return (
     <div className="pocket-view">
       <div className={`pocket-hero ${isCurrent ? 'current' : ''}`}>
-        <p className="pocket-hero-label">
-          {isCurrent ? 'Ce mois-ci' : detail.label}
-        </p>
+        <p className="pocket-hero-label">{isCurrent ? 'Ce mois-ci' : detail.label}</p>
         <p className="pocket-hero-amount">{formatMoney(detail.total)}</p>
         <p className="pocket-hero-meta">
           {detail.task_count} tâche{detail.task_count !== 1 ? 's' : ''} rémunérée{detail.task_count !== 1 ? 's' : ''}
@@ -83,6 +81,18 @@ export default function PocketView() {
         <p className="pocket-section-title">Détail des tâches</p>
         {detail.tasks.length === 0 ? (
           <p className="empty">Aucune tâche rémunérée pour ce mois.</p>
+        ) : isMobile ? (
+          <div className="pocket-mobile-list">
+            {detail.tasks.map((task) => (
+              <article key={task.id} className="pocket-mobile-card">
+                <div className="pocket-mobile-main">
+                  <h4 className="todo-title">{task.title}</h4>
+                  <p className="hint">{task.author} · {formatDate(task.completed_at)}</p>
+                </div>
+                <span className="pocket-mobile-gain">{formatMoney(task.reward)}</span>
+              </article>
+            ))}
+          </div>
         ) : (
           <div className="table-wrap pocket-table">
             <table>

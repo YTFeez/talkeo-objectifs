@@ -26,34 +26,49 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="login-page">
-      <div className="card login-card">
-        <div className="card-header">
-          <span>Talkeo</span>
-          <span className="hint">Objectifs partagés</span>
+    <div className="login-page v2-login">
+      <div className="login-bg" aria-hidden />
+      <div className="login-content">
+        <div className="login-brand">
+          <span className="login-logo">T</span>
+          <h1>Talkeo</h1>
+          <p className="login-tagline">Objectifs familiaux · récompenses · agenda</p>
         </div>
-        <div className="card-body">
+
+        <div className="card login-card">
           <form onSubmit={handleSubmit}>
-            <p className="hint" style={{ marginBottom: 12 }}>
-              Entrez votre code d&apos;accès pour continuer.
-            </p>
             <label className="field-label" htmlFor="token">Code d&apos;accès</label>
             <PasswordInput
               id="token"
+              className="input-touch"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Code secret"
+              placeholder="Entrez votre code secret"
               autoFocus
               required
             />
             {error && <p className="form-error">{error}</p>}
-            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 12, height: 32 }} disabled={loading}>
+            <button type="submit" className="btn btn-primary btn-block btn-touch login-submit" disabled={loading}>
               {loading ? 'Connexion…' : 'Entrer'}
             </button>
           </form>
-          <div className="divider" />
-          <p className="hint"><strong>Parents</strong> — ajoutez des objectifs pour {ROLE_LABELS.admin}</p>
-          <p className="hint"><strong>{ROLE_LABELS.admin}</strong> — gérez et cochez les objectifs</p>
+        </div>
+
+        <div className="login-roles">
+          <div className="login-role-card">
+            <span className="login-role-icon">👨‍👩‍👧</span>
+            <div>
+              <strong>Parents</strong>
+              <p>Ajoutent les objectifs, valident quand c&apos;est fait, planifient les événements.</p>
+            </div>
+          </div>
+          <div className="login-role-card accent">
+            <span className="login-role-icon">⭐</span>
+            <div>
+              <strong>{ROLE_LABELS.admin}</strong>
+              <p>Suit ses tâches, consulte l&apos;argent de poche et l&apos;historique.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
