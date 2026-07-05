@@ -51,7 +51,7 @@ input {
 }
 
 .app {
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: var(--space-lg) var(--space-md) var(--space-xl);
 }
@@ -1191,6 +1191,13 @@ select:focus {
 
 .todo-table {
   margin-top: var(--space-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.todo-table table {
+  min-width: 960px;
+  table-layout: auto;
 }
 
 .todo-table .col-check {
@@ -1216,14 +1223,33 @@ select:focus {
 }
 
 .todo-table .col-meta {
-  min-width: 140px;
+  min-width: 160px;
+  max-width: 220px;
   font-size: 12px;
   color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .todo-table .actions {
-  width: 120px;
+  width: 140px;
+  min-width: 140px;
   white-space: nowrap;
+  position: sticky;
+  right: 0;
+  background: var(--bg-editor);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.15);
+}
+
+.todo-table thead .actions {
+  background: var(--bg-elevated);
+}
+
+.todo-table .actions .link-btn + .link-btn {
+  margin-left: 10px;
+}
+
+.todo-row:hover .actions {
+  background: var(--fill-secondary);
 }
 
 .todo-row:hover td {

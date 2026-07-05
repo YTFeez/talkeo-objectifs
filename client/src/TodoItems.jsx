@@ -123,29 +123,24 @@ function todoCardClass(todo) {
   ].filter(Boolean).join(' ');
 }
 
-function TodoActions({ todo, isAdmin, onDelete, onEditStart, layout }) {
-  const canEditPending = (isAdmin || todo.can_edit) && todo.status === 'pending';
-  const canManageDone = isAdmin && todo.status === 'done';
+function TodoActions({ todo, onDelete, onEditStart, layout }) {
+  const canEdit = todo.can_edit;
+  const canDelete = todo.can_delete;
   const btnClass = layout === 'mobile' ? 'btn btn-secondary btn-touch' : 'link-btn';
   const dangerClass = layout === 'mobile' ? 'btn btn-secondary btn-touch danger' : 'link-btn danger';
 
-  if (!canEditPending && !canManageDone) {
+  if (!canEdit && !canDelete) {
     return layout === 'desktop' ? <td className="actions" /> : null;
   }
 
   const content = (
     <>
-      {canEditPending && todo.can_edit && (
+      {canEdit && (
         <button type="button" className={btnClass} onClick={onEditStart}>
           Modifier
         </button>
       )}
-      {canEditPending && (
-        <button type="button" className={dangerClass} onClick={() => onDelete(todo.id)}>
-          Supprimer
-        </button>
-      )}
-      {canManageDone && (
+      {canDelete && (
         <button type="button" className={dangerClass} onClick={() => onDelete(todo.id)}>
           Supprimer
         </button>
@@ -226,7 +221,6 @@ export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit
       </td>
       <TodoActions
         todo={todo}
-        isAdmin={isAdmin}
         onDelete={onDelete}
         onEditStart={() => editor.setEditing(true)}
         layout="desktop"
@@ -296,7 +290,6 @@ export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete,
       </p>
       <TodoActions
         todo={todo}
-        isAdmin={isAdmin}
         onDelete={onDelete}
         onEditStart={() => editor.setEditing(true)}
         layout="mobile"
@@ -319,7 +312,7 @@ export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onE
             <th className="col-duration">Durée</th>
             <th className="col-due">Échéance</th>
             <th className="col-meta">Info</th>
-            <th className="actions" />
+            <th className="actions">Actions</th>
           </tr>
         </thead>
         <tbody>

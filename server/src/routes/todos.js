@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware, checkRole } from '../auth.js';
-import { hashPassword, verifyPassword } from '../credentials.js';
+import { hashPassword } from '../credentials.js';
 import { logTodoAction, getHistory } from '../dailyLog.js';
 import { parseReward } from '../rewards.js';
 import { seedDemoTodos } from '../seedTodos.js';
@@ -19,15 +19,12 @@ const SORT_ORDER = `
     created_at DESC
 `;
 
-function canParentEdit(todo, token) {
-  if (!todo.creator_hash) return false;
-  return verifyPassword(token, todo.creator_hash) && todo.status === 'pending';
-}
-
-function enrichTodo(todo, role, token) {
+function enrichTodo(todo, role) {
+  const isParent = role === 'parent';
   return {
     ...todo,
-    can_edit: role === 'admin' || canParentEdit(todo, token),
+    can_edit: role === 'admin' || (isParent && todo.status === 'pending'),
+    can_delete: role === 'admin' || isParent,
   };
 }
 
@@ -109,7 +106,7 @@ router.get('/', (req, res) => {
 
   sql += SORT_ORDER;
 
-  const todos = db.prepare(sql).all(...params).map((t) => enrichTodo(t, req.role, req.token));
+  const todos = db.prepare(sql).all(...params).map((t) => enrichTodo(t, req.role));
   res.json({ todos, role: req.role });
 });
 
@@ -154,7 +151,7 @@ router.post('/', checkRole('parent'), (req, res) => {
   const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
   logTodoAction(todo, 'created');
 
-  res.status(201).json({ todo: enrichTodo(todo, req.role, req.token) });
+  res.status(201).json({ todo: enrichTodo(todo, req.role) });
 });
 
 router.patch('/:id', (req, res) => {
@@ -163,20 +160,20 @@ router.patch('/:id', (req, res) => {
 
   const isAdmin = req.role === 'admin';
   const isParent = req.role === 'parent';
-  const isOwner = canParentEdit(todo, req.token);
   const wantsStatusChange = req.body.status === 'done' || req.body.status === 'pending';
+  const canEditContent = isAdmin || (isParent && todo.status === 'pending');
 
   if (wantsStatusChange && !isParent) {
     return res.status(403).json({ error: 'Seuls les parents peuvent valider une tâche' });
   }
 
-  if (!wantsStatusChange && !isAdmin && !isOwner) {
+  if (!wantsStatusChange && !canEditContent) {
     return res.status(403).json({ error: 'Vous ne pouvez pas modifier cet objectif' });
   }
 
   let updates, params;
   try {
-    const canEditReward = isOwner && todo.status === 'pending';
+    const canEditReward = canEditContent;
     ({ updates, params } = buildTodoUpdates(req.body, isParent && wantsStatusChange, canEditReward));
   } catch (e) {
     return res.status(400).json({ error: e.message });
@@ -193,7 +190,7 @@ router.patch('/:id', (req, res) => {
   const action = req.body.status === 'done' ? 'completed' : 'updated';
   logTodoAction(updated, action);
 
-  res.json({ todo: enrichTodo(updated, req.role, req.token) });
+  res.json({ todo: enrichTodo(updated, req.role) });
 });
 
 router.delete('/:id', (req, res) => {
@@ -201,9 +198,9 @@ router.delete('/:id', (req, res) => {
   if (!todo) return res.status(404).json({ error: 'Objectif introuvable' });
 
   const isAdmin = req.role === 'admin';
-  const isOwner = canParentEdit(todo, req.token);
+  const isParent = req.role === 'parent';
 
-  if (!isAdmin && !isOwner) {
+  if (!isAdmin && !isParent) {
     return res.status(403).json({ error: 'Vous ne pouvez pas supprimer cet objectif' });
   }
 
