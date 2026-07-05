@@ -26,35 +26,34 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <div className="logo lg">T</div>
-          <div>
-            <h1>Talkeo</h1>
-            <p>Objectifs partagés en famille</p>
-          </div>
+      <div className="card login-card">
+        <div className="card-header">
+          <span>Talkeo</span>
+          <span className="hint">Objectifs partagés</span>
         </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <label htmlFor="token">Votre code d&apos;accès</label>
-          <input
-            id="token"
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Code secret"
-            autoFocus
-            required
-          />
-          {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn-primary full" disabled={loading}>
-            {loading ? 'Connexion…' : 'Entrer'}
-          </button>
-        </form>
-
-        <div className="login-help">
-          <p><strong>Parents</strong> — ajoutez des objectifs pour Arron</p>
-          <p><strong>Arron</strong> — gérez et cochez les objectifs</p>
+        <div className="card-body">
+          <form onSubmit={handleSubmit}>
+            <p className="hint" style={{ marginBottom: 12 }}>
+              Entrez votre code d&apos;accès pour continuer.
+            </p>
+            <label className="field-label" htmlFor="token">Code d&apos;accès</label>
+            <input
+              id="token"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Code secret"
+              autoFocus
+              required
+            />
+            {error && <p className="form-error">{error}</p>}
+            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 12, height: 32 }} disabled={loading}>
+              {loading ? 'Connexion…' : 'Entrer'}
+            </button>
+          </form>
+          <div className="divider" />
+          <p className="hint"><strong>Parents</strong> — ajoutez des objectifs pour Aronne</p>
+          <p className="hint"><strong>Aronne</strong> — gérez et cochez les objectifs</p>
         </div>
       </div>
     </div>

@@ -22,7 +22,7 @@ router.post('/login', loginLimiter, (req, res) => {
 
   res.json({
     role,
-    label: role === 'admin' ? 'Arron' : 'Parent',
+    label: role === 'admin' ? 'Aronne' : 'Parent',
   });
 });
 

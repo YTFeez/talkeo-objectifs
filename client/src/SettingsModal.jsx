@@ -46,47 +46,32 @@ export default function SettingsModal({ onClose, onPasswordChanged }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Changer le mot de passe</span>
-          <button type="button" className="modal-close" onClick={onClose}>×</button>
+          <h2>Changer le mot de passe</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Fermer">×</button>
         </div>
-        <form onSubmit={handleSubmit} className="modal-body">
-          <p className="modal-desc">Modifier votre code d&apos;accès ({label}).</p>
-          <label>
-            Code actuel
-            <input
-              type="password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              required
-              autoFocus
-            />
-          </label>
-          <label>
-            Nouveau code
-            <input
-              type="password"
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-              required
-              minLength={4}
-            />
-          </label>
-          <label>
-            Confirmer
-            <input
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-            />
-          </label>
-          {error && <p className="form-error">{error}</p>}
-          {success && <p className="form-success">{success}</p>}
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
-            <button type="submit" className="btn-primary-inline" disabled={loading}>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            <p className="hint">Modifier votre code d&apos;accès ({label}).</p>
+            <label className="field-label">
+              Code actuel
+              <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoFocus />
+            </label>
+            <label className="field-label">
+              Nouveau code
+              <input type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={4} />
+            </label>
+            <label className="field-label">
+              Confirmer
+              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            {success && <p className="form-success">{success}</p>}
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Annuler</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </div>

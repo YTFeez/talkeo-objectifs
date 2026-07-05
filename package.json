@@ -2,7 +2,7 @@
   "name": "talkeo",
   "version": "1.0.0",
   "private": true,
-  "description": "Talkeo — liste d'objectifs partagée entre parents et Arron",
+  "description": "Talkeo — liste d'objectifs partagée entre parents et Aronne",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --prefix server",

@@ -120,8 +120,8 @@ function AddForm({ defaultAuthor, onAdded }) {
   }
 
   return (
-    <section className="add-section">
-      <h2 className="section-label">Nouvel objectif</h2>
+    <section className="add-form-section">
+      <h3>Nouvel objectif</h3>
       <form className="add-form" onSubmit={handleSubmit}>
         <input
           ref={inputRef}
@@ -145,7 +145,7 @@ function AddForm({ defaultAuthor, onAdded }) {
           {!open && (
             <ObjectiveFields values={fields} onChange={updateField} compact />
           )}
-          <button type="submit" className="btn-primary" disabled={loading || !title.trim()}>
+          <button type="submit" className="btn btn-primary" disabled={loading || !title.trim()}>
             {loading ? 'Ajout…' : '+ Ajouter'}
           </button>
         </div>
@@ -204,10 +204,10 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
           />
           {error && <p className="form-error">{error}</p>}
           <div className="card-actions">
-            <button type="button" className="btn-ghost" onClick={() => setEditing(false)}>
+            <button type="button" className="btn btn-secondary" onClick={() => setEditing(false)}>
               Annuler
             </button>
-            <button type="submit" className="btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? '…' : 'Enregistrer'}
             </button>
           </div>
@@ -420,107 +420,116 @@ export default function Dashboard({ auth, onLogout }) {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-brand">
-          <div className="logo">T</div>
-          <div>
-            <strong>Talkeo</strong>
-            <span>{isAdmin ? 'Espace Arron' : 'Espace parents'}</span>
-          </div>
-        </div>
-        <div className="header-user">
-          <span className="user-badge">{auth.label}</span>
-          <button type="button" className="btn-ghost" onClick={() => setShowSettings(true)}>
-            Mot de passe
-          </button>
-          <button type="button" className="btn-ghost" onClick={onLogout}>
-            Quitter
-          </button>
-        </div>
-      </header>
-
-      <div className="toolbar">
-        <nav className="tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={filter === tab.id ? 'active' : ''}
-              onClick={() => setFilter(tab.id)}
-            >
-              {tab.label}
-              {tab.count != null && tab.count > 0 && (
-                <span className="tab-count">{tab.count}</span>
-              )}
-            </button>
-          ))}
-        </nav>
+      <header className="app-header">
+        <h1>Talkeo</h1>
         {filter !== 'history' && (
-          <div className="search-box">
+          <div className="global-search">
             <input
               type="search"
+              className="global-search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher…"
+              placeholder="Rechercher un objectif…"
             />
           </div>
         )}
-      </div>
+        <div className="file-bar">
+          <span className="user-pill">{auth.label}</span>
+          <button type="button" className="btn btn-secondary" onClick={() => setShowSettings(true)}>
+            Mot de passe
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={onLogout}>
+            Quitter
+          </button>
+        </div>
+        <span className="meta">
+          {pendingCount} en attente · {isAdmin ? 'Espace Aronne' : 'Espace parents'}
+        </span>
+      </header>
 
-      <main className="main">
-        {!isAdmin && filter === 'pending' && (
-          <AddForm defaultAuthor={defaultAuthor} onAdded={loadTodos} />
-        )}
+      <div className="layout">
+        <div className="card sidebar-card">
+          <div className="card-header">Navigation</div>
+          <div className="card-body">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`list-item-btn ${filter === tab.id ? 'active' : ''}`}
+                onClick={() => setFilter(tab.id)}
+              >
+                <span className="name">
+                  {tab.label}
+                  {tab.count != null && tab.count > 0 && (
+                    <span className="tab-count">{tab.count}</span>
+                  )}
+                </span>
+                {tab.id === 'pending' && (
+                  <span className="sub">Objectifs à réaliser</span>
+                )}
+                {tab.id === 'done' && <span className="sub">Déjà terminés</span>}
+                {tab.id === 'history' && <span className="sub">Journal des 30 derniers jours</span>}
+                {tab.id === 'all' && <span className="sub">Vue complète admin</span>}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {isAdmin && filter === 'pending' && pendingCount > 0 && (
-          <p className="admin-banner">
-            {pendingCount} objectif{pendingCount > 1 ? 's' : ''} en attente — triés par échéance et priorité.
-          </p>
-        )}
-
-        <section className="list-section">
-          {filter !== 'history' && (
-            <h2 className="section-label">
+        <div className="card main-card">
+          <div className="card-header">
+            <span>
               {filter === 'pending' && 'À faire'}
               {filter === 'done' && 'Terminés'}
+              {filter === 'history' && 'Historique'}
               {filter === 'all' && 'Tous les objectifs'}
-              {!loading && ` (${filtered.length})`}
-            </h2>
-          )}
+            </span>
+            {filter !== 'history' && !loading && (
+              <span className="hint">{filtered.length} objectif{filtered.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+          <div className="card-body">
+            {!isAdmin && filter === 'pending' && (
+              <AddForm defaultAuthor={defaultAuthor} onAdded={loadTodos} />
+            )}
 
-          {filter === 'history' ? (
-            <HistoryView />
-          ) : (
-            <>
-              {loading && <p className="state-msg">Chargement…</p>}
-              {!loading && filtered.length === 0 && (
-                <div className="empty">
-                  <p>
+            {isAdmin && filter === 'pending' && pendingCount > 0 && (
+              <p className="admin-banner">
+                {pendingCount} objectif{pendingCount > 1 ? 's' : ''} en attente — triés par échéance et priorité.
+              </p>
+            )}
+
+            {filter === 'history' ? (
+              <HistoryView />
+            ) : (
+              <>
+                {loading && <p className="state-msg">Chargement…</p>}
+                {!loading && filtered.length === 0 && (
+                  <p className="empty">
                     {search
                       ? 'Aucun résultat pour cette recherche.'
                       : filter === 'pending'
                         ? 'Aucun objectif en attente.'
                         : 'Rien à afficher ici.'}
                   </p>
+                )}
+                <div className="todo-list">
+                  {!loading &&
+                    filtered.map((todo) => (
+                      <TodoCard
+                        key={todo.id}
+                        todo={todo}
+                        isAdmin={isAdmin}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onEdit={handleEdit}
+                      />
+                    ))}
                 </div>
-              )}
-              <div className="todo-list">
-                {!loading &&
-                  filtered.map((todo) => (
-                    <TodoCard
-                      key={todo.id}
-                      todo={todo}
-                      isAdmin={isAdmin}
-                      onToggle={handleToggle}
-                      onDelete={handleDelete}
-                      onEdit={handleEdit}
-                    />
-                  ))}
-              </div>
-            </>
-          )}
-        </section>
-      </main>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>

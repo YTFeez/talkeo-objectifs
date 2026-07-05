@@ -5,7 +5,7 @@ Application web **Talkeo** : tes parents ajoutent des objectifs à ta to-do list
 ## Fonctionnalités
 
 - **Parents** : ajoutent, modifient et suppriment leurs objectifs en attente
-- **Arron (admin)** : voit tout, coche comme terminé, supprime
+- **Aronne (admin)** : voit tout, coche comme terminé, supprime
 - Changement de code d'accès dans **Paramètres**
 - Données persistées en SQLite sur le VPS (volume Docker)
 
