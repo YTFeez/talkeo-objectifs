@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, saveAuth, getStoredAuth, getRoleLabel } from './api';
+import PasswordInput from './PasswordInput';
 
 export default function SettingsModal({ onClose, onPasswordChanged }) {
   const { role, label } = getStoredAuth();
@@ -57,15 +58,15 @@ export default function SettingsModal({ onClose, onPasswordChanged }) {
             <p className="hint">Modifier votre code d&apos;accès ({displayLabel}).</p>
             <label className="field-label">
               Code actuel
-              <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoFocus />
+              <PasswordInput value={current} onChange={(e) => setCurrent(e.target.value)} required autoFocus />
             </label>
             <label className="field-label">
               Nouveau code
-              <input type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={4} />
+              <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} required minLength={4} />
             </label>
             <label className="field-label">
               Confirmer
-              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+              <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             </label>
             {error && <p className="form-error">{error}</p>}
             {success && <p className="form-success">{success}</p>}

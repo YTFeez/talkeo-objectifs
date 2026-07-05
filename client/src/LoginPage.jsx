@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, saveAuth, getRoleLabel, ROLE_LABELS } from './api';
+import PasswordInput from './PasswordInput';
 
 export default function LoginPage({ onLogin }) {
   const [token, setToken] = useState('');
@@ -37,9 +38,8 @@ export default function LoginPage({ onLogin }) {
               Entrez votre code d&apos;accès pour continuer.
             </p>
             <label className="field-label" htmlFor="token">Code d&apos;accès</label>
-            <input
+            <PasswordInput
               id="token"
-              type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="Code secret"
