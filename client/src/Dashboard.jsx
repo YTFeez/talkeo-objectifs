@@ -1,24 +1,94 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { api, clearAuth, formatDate, PRIORITY_LABELS, getStoredAuth, saveAuthor } from './api';
+import {
+  api,
+  clearAuth,
+  formatDate,
+  formatDay,
+  formatDue,
+  isOverdue,
+  toDatetimeLocal,
+  PRIORITY_LABELS,
+  DURATION_LABELS,
+  DURATION_HINTS,
+  getStoredAuth,
+  saveAuthor,
+} from './api';
 import SettingsModal from './SettingsModal';
 
-function PriorityBadge({ priority }) {
+function Badge({ type, value }) {
+  return <span className={`badge badge-${type}-${value}`}>{type === 'priority' ? PRIORITY_LABELS[value] : DURATION_LABELS[value]}</span>;
+}
+
+function TodoMeta({ todo }) {
   return (
-    <span className={`priority-badge priority-${priority}`}>
-      {PRIORITY_LABELS[priority]}
-    </span>
+    <div className="card-badges">
+      <Badge type="priority" value={todo.priority || 'normal'} />
+      <Badge type="duration" value={todo.duration || 'normal'} />
+      {todo.due_at && (
+        <span className={`due-badge ${isOverdue(todo.due_at) && todo.status === 'pending' ? 'overdue' : ''}`}>
+          ⏰ {formatDue(todo.due_at)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ObjectiveFields({ values, onChange, compact }) {
+  return (
+    <div className={`objective-fields ${compact ? 'compact' : ''}`}>
+      <label className="field-inline">
+        De
+        <select value={values.author} onChange={(e) => onChange('author', e.target.value)}>
+          <option>Maman</option>
+          <option>Papa</option>
+          <option>Parent</option>
+        </select>
+      </label>
+      <label className="field-inline">
+        Priorité
+        <select value={values.priority} onChange={(e) => onChange('priority', e.target.value)}>
+          <option value="high">Haute</option>
+          <option value="normal">Normale</option>
+          <option value="low">Basse</option>
+        </select>
+      </label>
+      <label className="field-inline">
+        Durée
+        <select value={values.duration} onChange={(e) => onChange('duration', e.target.value)}>
+          <option value="short">Faible ({DURATION_HINTS.short})</option>
+          <option value="normal">Normale ({DURATION_HINTS.normal})</option>
+          <option value="long">Longue ({DURATION_HINTS.long})</option>
+        </select>
+      </label>
+      <label className="field-inline field-due">
+        Échéance
+        <input
+          type="datetime-local"
+          value={values.due_at}
+          onChange={(e) => onChange('due_at', e.target.value)}
+        />
+      </label>
+    </div>
   );
 }
 
 function AddForm({ defaultAuthor, onAdded }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [author, setAuthor] = useState(defaultAuthor);
-  const [priority, setPriority] = useState('normal');
+  const [fields, setFields] = useState({
+    author: defaultAuthor,
+    priority: 'normal',
+    duration: 'normal',
+    due_at: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
   const inputRef = useRef(null);
+
+  function updateField(key, val) {
+    setFields((f) => ({ ...f, [key]: val }));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,11 +98,17 @@ function AddForm({ defaultAuthor, onAdded }) {
     try {
       await api('/todos', {
         method: 'POST',
-        body: JSON.stringify({ title, description, author, priority }),
+        body: JSON.stringify({
+          title,
+          description,
+          ...fields,
+          due_at: fields.due_at || null,
+        }),
       });
-      saveAuthor(author);
+      saveAuthor(fields.author);
       setTitle('');
       setDescription('');
+      setFields((f) => ({ ...f, due_at: '' }));
       setOpen(false);
       onAdded();
       inputRef.current?.focus();
@@ -64,23 +140,11 @@ function AddForm({ defaultAuthor, onAdded }) {
             rows={2}
           />
         )}
+        {open && <ObjectiveFields values={fields} onChange={updateField} />}
         <div className="add-row">
-          <label className="field-inline">
-            De
-            <select value={author} onChange={(e) => setAuthor(e.target.value)}>
-              <option>Maman</option>
-              <option>Papa</option>
-              <option>Parent</option>
-            </select>
-          </label>
-          <label className="field-inline">
-            Priorité
-            <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="high">Haute</option>
-              <option value="normal">Normale</option>
-              <option value="low">Basse</option>
-            </select>
-          </label>
+          {!open && (
+            <ObjectiveFields values={fields} onChange={updateField} compact />
+          )}
           <button type="submit" className="btn-primary" disabled={loading || !title.trim()}>
             {loading ? 'Ajout…' : '+ Ajouter'}
           </button>
@@ -95,8 +159,12 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
   const [description, setDescription] = useState(todo.description || '');
-  const [author, setAuthor] = useState(todo.author);
-  const [priority, setPriority] = useState(todo.priority);
+  const [fields, setFields] = useState({
+    author: todo.author,
+    priority: todo.priority || 'normal',
+    duration: todo.duration || 'normal',
+    due_at: toDatetimeLocal(todo.due_at),
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -105,7 +173,12 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
     setSaving(true);
     setError('');
     try {
-      await onEdit(todo.id, { title, description, author, priority });
+      await onEdit(todo.id, {
+        title,
+        description,
+        ...fields,
+        due_at: fields.due_at || null,
+      });
       setEditing(false);
     } catch (err) {
       setError(err.message);
@@ -125,18 +198,10 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
             placeholder="Détails"
             rows={2}
           />
-          <div className="add-row">
-            <select value={author} onChange={(e) => setAuthor(e.target.value)}>
-              <option>Maman</option>
-              <option>Papa</option>
-              <option>Parent</option>
-            </select>
-            <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="high">Haute</option>
-              <option value="normal">Normale</option>
-              <option value="low">Basse</option>
-            </select>
-          </div>
+          <ObjectiveFields
+            values={fields}
+            onChange={(k, v) => setFields((f) => ({ ...f, [k]: v }))}
+          />
           {error && <p className="form-error">{error}</p>}
           <div className="card-actions">
             <button type="button" className="btn-ghost" onClick={() => setEditing(false)}>
@@ -152,7 +217,7 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
   }
 
   return (
-    <article className={`todo-card priority-${todo.priority} ${todo.status === 'done' ? 'done' : ''}`}>
+    <article className={`todo-card priority-${todo.priority} ${todo.status === 'done' ? 'done' : ''} ${isOverdue(todo.due_at) && todo.status === 'pending' ? 'overdue-card' : ''}`}>
       <div className="card-main">
         {isAdmin && (
           <button
@@ -165,17 +230,17 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
         <div className="card-body">
           <div className="card-top">
             <h3>{todo.title}</h3>
-            <PriorityBadge priority={todo.priority} />
           </div>
+          <TodoMeta todo={todo} />
           {todo.description && <p className="card-desc">{todo.description}</p>}
           <div className="card-meta">
             <span>{todo.author}</span>
             <span>·</span>
-            <span>{formatDate(todo.created_at)}</span>
+            <span>Ajouté {formatDate(todo.created_at)}</span>
             {todo.status === 'done' && todo.completed_at && (
               <>
                 <span>·</span>
-                <span className="meta-done">Fait le {formatDate(todo.completed_at)}</span>
+                <span className="meta-done">Fait {formatDate(todo.completed_at)}</span>
               </>
             )}
           </div>
@@ -207,6 +272,84 @@ function TodoCard({ todo, isAdmin, onToggle, onDelete, onEdit }) {
   );
 }
 
+function HistoryDay({ day }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="history-day">
+      <button type="button" className="history-day-header" onClick={() => setOpen(!open)}>
+        <span className="history-date">{formatDay(day.date)}</span>
+        <span className="history-stats">
+          +{day.added_count} ajouté{day.added_count !== 1 ? 's' : ''}
+          {day.completed_count > 0 && ` · ${day.completed_count} terminé${day.completed_count !== 1 ? 's' : ''}`}
+        </span>
+        <span className="history-chevron">{open ? '▼' : '▶'}</span>
+      </button>
+      {open && (
+        <div className="history-body">
+          {day.added.length > 0 && (
+            <div className="history-block">
+              <h4>Ajoutés ce jour</h4>
+              <ul>
+                {day.added.map((t) => (
+                  <li key={`a-${t.id}`}>
+                    <strong>{t.title}</strong>
+                    <span className="history-item-meta">
+                      {t.author} · {PRIORITY_LABELS[t.priority]} · {DURATION_LABELS[t.duration || 'normal']}
+                      {t.due_at && ` · ${formatDue(t.due_at)}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {day.completed.length > 0 && (
+            <div className="history-block">
+              <h4>Terminés ce jour</h4>
+              <ul>
+                {day.completed.map((t) => (
+                  <li key={`c-${t.id}`}>
+                    <strong>{t.title}</strong>
+                    <span className="history-item-meta">
+                      {formatDate(t.completed_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {day.added.length === 0 && day.completed.length === 0 && (
+            <p className="history-empty">Aucune activité enregistrée.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryView() {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api('/todos/history?days=30')
+      .then(({ history: h }) => setHistory(h))
+      .catch(() => setHistory([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="state-msg">Chargement de l&apos;historique…</p>;
+  if (history.length === 0) return <p className="state-msg">Aucun historique pour le moment.</p>;
+
+  return (
+    <div className="history-list">
+      {history.map((day) => (
+        <HistoryDay key={day.date} day={day} />
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard({ auth, onLogout }) {
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
@@ -218,12 +361,12 @@ export default function Dashboard({ auth, onLogout }) {
   const defaultAuthor = getStoredAuth().author;
 
   const loadTodos = useCallback(async () => {
+    if (filter === 'history') return;
     setLoading(true);
     try {
       const status = filter === 'all' ? '' : `?status=${filter}`;
       const { todos: list } = await api(`/todos${status}`);
       setTodos(list);
-
       const { todos: pending } = await api('/todos?status=pending');
       setPendingCount(pending.length);
     } catch {
@@ -271,6 +414,7 @@ export default function Dashboard({ auth, onLogout }) {
   const tabs = [
     { id: 'pending', label: 'En attente', count: pendingCount },
     { id: 'done', label: 'Terminés' },
+    { id: 'history', label: 'Historique' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous' }] : []),
   ];
 
@@ -311,14 +455,16 @@ export default function Dashboard({ auth, onLogout }) {
             </button>
           ))}
         </nav>
-        <div className="search-box">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher…"
-          />
-        </div>
+        {filter !== 'history' && (
+          <div className="search-box">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher…"
+            />
+          </div>
+        )}
       </div>
 
       <main className="main">
@@ -328,48 +474,51 @@ export default function Dashboard({ auth, onLogout }) {
 
         {isAdmin && filter === 'pending' && pendingCount > 0 && (
           <p className="admin-banner">
-            {pendingCount} objectif{pendingCount > 1 ? 's' : ''} en attente — cochez pour marquer comme fait.
+            {pendingCount} objectif{pendingCount > 1 ? 's' : ''} en attente — triés par échéance et priorité.
           </p>
         )}
 
         <section className="list-section">
-          <h2 className="section-label">
-            {filter === 'pending' && 'À faire'}
-            {filter === 'done' && 'Terminés'}
-            {filter === 'all' && 'Tous les objectifs'}
-            {!loading && ` (${filtered.length})`}
-          </h2>
-
-          {loading && <p className="state-msg">Chargement…</p>}
-
-          {!loading && filtered.length === 0 && (
-            <div className="empty">
-              <p>
-                {search
-                  ? 'Aucun résultat pour cette recherche.'
-                  : filter === 'pending'
-                    ? 'Aucun objectif en attente.'
-                    : 'Rien à afficher ici.'}
-              </p>
-              {!isAdmin && filter === 'pending' && !search && (
-                <p className="empty-hint">Utilisez le formulaire ci-dessus pour en ajouter un.</p>
-              )}
-            </div>
+          {filter !== 'history' && (
+            <h2 className="section-label">
+              {filter === 'pending' && 'À faire'}
+              {filter === 'done' && 'Terminés'}
+              {filter === 'all' && 'Tous les objectifs'}
+              {!loading && ` (${filtered.length})`}
+            </h2>
           )}
 
-          <div className="todo-list">
-            {!loading &&
-              filtered.map((todo) => (
-                <TodoCard
-                  key={todo.id}
-                  todo={todo}
-                  isAdmin={isAdmin}
-                  onToggle={handleToggle}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                />
-              ))}
-          </div>
+          {filter === 'history' ? (
+            <HistoryView />
+          ) : (
+            <>
+              {loading && <p className="state-msg">Chargement…</p>}
+              {!loading && filtered.length === 0 && (
+                <div className="empty">
+                  <p>
+                    {search
+                      ? 'Aucun résultat pour cette recherche.'
+                      : filter === 'pending'
+                        ? 'Aucun objectif en attente.'
+                        : 'Rien à afficher ici.'}
+                  </p>
+                </div>
+              )}
+              <div className="todo-list">
+                {!loading &&
+                  filtered.map((todo) => (
+                    <TodoCard
+                      key={todo.id}
+                      todo={todo}
+                      isAdmin={isAdmin}
+                      onToggle={handleToggle}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                    />
+                  ))}
+              </div>
+            </>
+          )}
         </section>
       </main>
 

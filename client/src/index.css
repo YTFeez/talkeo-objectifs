@@ -462,6 +462,156 @@ input:focus, select:focus, textarea:focus {
 .priority-normal { background: rgba(96, 165, 250, 0.15); color: var(--normal); }
 .priority-low { background: rgba(115, 115, 115, 0.15); color: var(--low); }
 
+/* Badges durée / priorité / échéance */
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.badge-priority-high { background: rgba(249, 115, 22, 0.15); color: var(--high); }
+.badge-priority-normal { background: rgba(96, 165, 250, 0.15); color: var(--normal); }
+.badge-priority-low { background: rgba(115, 115, 115, 0.15); color: var(--low); }
+
+.badge-duration-short { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.badge-duration-normal { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
+.badge-duration-long { background: rgba(236, 72, 153, 0.12); color: #f472b6; }
+
+.due-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent);
+}
+
+.due-badge.overdue {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.todo-card.overdue-card {
+  border-left-color: var(--danger);
+}
+
+.objective-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.objective-fields.compact {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.field-due input[type="datetime-local"] {
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+/* Historique journalier */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-day {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.history-day-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  text-align: left;
+  background: transparent;
+}
+
+.history-day-header:hover {
+  background: var(--bg-hover);
+}
+
+.history-date {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+  text-transform: capitalize;
+}
+
+.history-stats {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.history-chevron {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.history-body {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.history-block {
+  margin-top: 12px;
+}
+
+.history-block h4 {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.history-block ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-block li {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.history-block li strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.history-item-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.history-empty {
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 .empty, .state-msg {
   text-align: center;
   padding: 32px 16px;

@@ -74,8 +74,59 @@ export function formatDate(iso) {
   });
 }
 
+export function formatDay(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export function formatDue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Aujourd'hui ${time}`;
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function isOverdue(dueAt) {
+  if (!dueAt) return false;
+  const d = new Date(dueAt.includes('T') ? dueAt : dueAt.replace(' ', 'T') + 'Z');
+  return d < new Date();
+}
+
+export function toDatetimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export const PRIORITY_LABELS = {
   low: 'Basse',
   normal: 'Normale',
   high: 'Haute',
+};
+
+export const DURATION_LABELS = {
+  short: 'Faible',
+  normal: 'Normale',
+  long: 'Longue',
+};
+
+export const DURATION_HINTS = {
+  short: '~15 min',
+  normal: '~1 h',
+  long: 'Plusieurs h',
 };
