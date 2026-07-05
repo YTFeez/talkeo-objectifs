@@ -142,6 +142,53 @@ export function toDatetimeLocal(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+export function toEventParts(iso) {
+  const local = toDatetimeLocal(iso);
+  if (!local) return { event_date: '', event_time: '10:00' };
+  const [event_date, event_time] = local.split('T');
+  return { event_date, event_time: event_time || '10:00' };
+}
+
+export function fromEventParts(date, time) {
+  if (!date) return null;
+  return `${date}T${time || '10:00'}`;
+}
+
+export function formatEventAt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+  const datePart = d.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} à ${timePart}`;
+}
+
+export function formatEventShort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Aujourd'hui à ${time}`;
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function isEventPast(iso) {
+  if (!iso) return false;
+  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+  return d < new Date();
+}
+
 export const PRIORITY_LABELS = {
   low: 'Basse',
   normal: 'Normale',

@@ -11,7 +11,9 @@ import {
 } from './api';
 import SettingsModal from './SettingsModal';
 import { TodoTable, TodoMobileList } from './TodoItems';
+import { EventTable, EventMobileList, EventFields } from './EventItems';
 import { useIsMobile } from './useMediaQuery';
+import { fromEventParts } from './api';
 
 function ObjectiveFields({ values, onChange, compact }) {
   return (
@@ -137,6 +139,88 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
   );
 }
 
+function AddEventForm({ defaultAuthor, onAdded, isMobile }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [fields, setFields] = useState({
+    author: defaultAuthor,
+    event_date: '',
+    event_time: '10:00',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef(null);
+
+  function updateField(key, val) {
+    setFields((f) => ({ ...f, [key]: val }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const event_at = fromEventParts(fields.event_date, fields.event_time);
+    if (!event_at) {
+      setError('Choisissez une date');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await api('/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          author: fields.author,
+          event_at,
+        }),
+      });
+      saveAuthor(fields.author);
+      setTitle('');
+      setDescription('');
+      setFields((f) => ({ ...f, event_date: '', event_time: '10:00' }));
+      onAdded();
+      inputRef.current?.focus();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className={`add-form-section add-event-section ${isMobile ? 'add-form-mobile' : ''}`}>
+      <h3>Nouvel événement</h3>
+      <p className="hint add-event-hint">
+        Ex. : Aider papa à faire les courses — choisissez le jour et l&apos;heure.
+      </p>
+      <form className="add-form" onSubmit={handleSubmit}>
+        <input
+          ref={inputRef}
+          type="text"
+          className="input-touch"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Ex : Aider papa à faire les courses"
+          required
+        />
+        <textarea
+          className="input-touch"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Détails (lieu, consignes…)"
+          rows={2}
+        />
+        <EventFields values={fields} onChange={updateField} />
+        <button type="submit" className="btn btn-primary btn-touch add-submit" disabled={loading || !title.trim()}>
+          {loading ? 'Ajout…' : '+ Ajouter l\'événement'}
+        </button>
+        {error && <p className="form-error">{error}</p>}
+      </form>
+    </section>
+  );
+}
+
 function HistoryDay({ day }) {
   const [open, setOpen] = useState(false);
 
@@ -214,6 +298,7 @@ function HistoryView() {
 
 const TAB_ICONS = {
   pending: '○',
+  events: '◇',
   done: '✓',
   history: '◷',
   all: '≡',
@@ -221,6 +306,7 @@ const TAB_ICONS = {
 
 const TAB_SHORT = {
   pending: 'Attente',
+  events: 'Agenda',
   done: 'Fait',
   history: 'Journal',
   all: 'Tous',
@@ -231,7 +317,9 @@ export default function Dashboard({ auth, onLogout }) {
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
   const [todos, setTodos] = useState([]);
+  const [events, setEvents] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [eventsCount, setEventsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -239,26 +327,36 @@ export default function Dashboard({ auth, onLogout }) {
   const defaultAuthor = getStoredAuth().author;
   const displayName = isAdmin ? ROLE_LABELS.admin : auth.label;
 
-  const loadTodos = useCallback(async () => {
-    if (filter === 'history') return;
-    setLoading(true);
+  const loadData = useCallback(async () => {
+    const isHistory = filter === 'history';
+    if (!isHistory) setLoading(true);
     try {
-      const status = filter === 'all' ? '' : `?status=${filter}`;
-      const { todos: list } = await api(`/todos${status}`);
-      setTodos(list);
       const { todos: pending } = await api('/todos?status=pending');
       setPendingCount(pending.length);
+      const { events: upcoming } = await api('/events?upcoming=1');
+      setEventsCount(upcoming.length);
+
+      if (isHistory) return;
+
+      if (filter === 'events') {
+        const { events: list } = await api('/events');
+        setEvents(list);
+      } else {
+        const status = filter === 'all' ? '' : `?status=${filter}`;
+        const { todos: list } = await api(`/todos${status}`);
+        setTodos(list);
+      }
     } catch {
       clearAuth();
       onLogout();
     } finally {
-      setLoading(false);
+      if (!isHistory) setLoading(false);
     }
   }, [filter, onLogout]);
 
   useEffect(() => {
-    loadTodos();
-  }, [loadTodos]);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
     if (!accountOpen) return undefined;
@@ -271,6 +369,15 @@ export default function Dashboard({ auth, onLogout }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    if (filter === 'events') {
+      if (!q) return events;
+      return events.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.description?.toLowerCase().includes(q) ||
+          e.author.toLowerCase().includes(q),
+      );
+    }
     if (!q) return todos;
     return todos.filter(
       (t) =>
@@ -278,29 +385,41 @@ export default function Dashboard({ auth, onLogout }) {
         t.description?.toLowerCase().includes(q) ||
         t.author.toLowerCase().includes(q),
     );
-  }, [todos, search]);
+  }, [todos, events, search, filter]);
 
   async function handleToggle(todo) {
     await api(`/todos/${todo.id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status: todo.status === 'done' ? 'pending' : 'done' }),
     });
-    loadTodos();
+    loadData();
   }
 
   async function handleDelete(id) {
     if (!confirm('Supprimer cet objectif ?')) return;
     await api(`/todos/${id}`, { method: 'DELETE' });
-    loadTodos();
+    loadData();
   }
 
   async function handleEdit(id, data) {
     await api(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
-    loadTodos();
+    loadData();
+  }
+
+  async function handleEventDelete(id) {
+    if (!confirm('Supprimer cet événement ?')) return;
+    await api(`/events/${id}`, { method: 'DELETE' });
+    loadData();
+  }
+
+  async function handleEventEdit(id, data) {
+    await api(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    loadData();
   }
 
   const tabs = [
     { id: 'pending', label: 'En attente', count: pendingCount },
+    { id: 'events', label: 'Événements', count: eventsCount },
     { id: 'done', label: 'Terminés' },
     { id: 'history', label: 'Historique' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous' }] : []),
@@ -308,10 +427,15 @@ export default function Dashboard({ auth, onLogout }) {
 
   const filterTitle = {
     pending: 'À faire',
+    events: 'Événements',
     done: 'Terminés',
     history: 'Historique',
     all: 'Tous les objectifs',
   }[filter];
+
+  const isEventsView = filter === 'events';
+  const isHistoryView = filter === 'history';
+  const showSearch = !isHistoryView;
 
   const todoListProps = {
     todos: filtered,
@@ -322,6 +446,13 @@ export default function Dashboard({ auth, onLogout }) {
     ObjectiveFields,
   };
 
+  const eventListProps = {
+    events: filtered,
+    onDelete: handleEventDelete,
+    onEdit: handleEventEdit,
+    EventFields,
+  };
+
   return (
     <div className={`app app-dashboard ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
       {isMobile && (
@@ -329,7 +460,7 @@ export default function Dashboard({ auth, onLogout }) {
           <div className="mobile-top-main">
             <h1>Talkeo</h1>
             <p className="mobile-top-meta">
-              {pendingCount} en attente · {isAdmin ? ROLE_LABELS.admin : 'Parents'}
+              {pendingCount} attente · {eventsCount} évén. · {isAdmin ? ROLE_LABELS.admin : 'Parents'}
             </p>
           </div>
           <button
@@ -343,28 +474,28 @@ export default function Dashboard({ auth, onLogout }) {
         </header>
       )}
 
-      {isMobile && filter !== 'history' && (
+      {isMobile && showSearch && (
         <div className="mobile-search-bar">
           <input
             type="search"
             className="global-search-input input-touch"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={isEventsView ? 'Rechercher un événement…' : 'Rechercher…'}
           />
         </div>
       )}
 
       <header className="app-header desktop-only">
         <h1>Talkeo</h1>
-        {filter !== 'history' && (
+        {showSearch && (
           <div className="global-search">
             <input
               type="search"
               className="global-search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un objectif…"
+              placeholder={isEventsView ? 'Rechercher un événement…' : 'Rechercher un objectif…'}
             />
           </div>
         )}
@@ -378,7 +509,7 @@ export default function Dashboard({ auth, onLogout }) {
           </button>
         </div>
         <span className="meta">
-          {pendingCount} en attente · {isAdmin ? `Espace ${ROLE_LABELS.admin}` : 'Espace parents'}
+          {pendingCount} en attente · {eventsCount} événement{eventsCount !== 1 ? 's' : ''} · {isAdmin ? `Espace ${ROLE_LABELS.admin}` : 'Espace parents'}
         </span>
       </header>
 
@@ -400,6 +531,7 @@ export default function Dashboard({ auth, onLogout }) {
                   )}
                 </span>
                 {tab.id === 'pending' && <span className="sub">Objectifs à réaliser</span>}
+                {tab.id === 'events' && <span className="sub">Rendez-vous et activités planifiés</span>}
                 {tab.id === 'done' && <span className="sub">Déjà terminés</span>}
                 {tab.id === 'history' && <span className="sub">Journal des 30 derniers jours</span>}
                 {tab.id === 'all' && <span className="sub">Vue complète admin</span>}
@@ -412,12 +544,18 @@ export default function Dashboard({ auth, onLogout }) {
           <div className="card-header">
             <span>{filterTitle}</span>
             {filter !== 'history' && !loading && (
-              <span className="hint">{filtered.length} objectif{filtered.length !== 1 ? 's' : ''}</span>
+              <span className="hint">
+                {filtered.length} {isEventsView ? `événement${filtered.length !== 1 ? 's' : ''}` : `objectif${filtered.length !== 1 ? 's' : ''}`}
+              </span>
             )}
           </div>
           <div className="card-body main-card-body">
             {!isAdmin && filter === 'pending' && (
-              <AddForm defaultAuthor={defaultAuthor} onAdded={loadTodos} isMobile={isMobile} />
+              <AddForm defaultAuthor={defaultAuthor} onAdded={loadData} isMobile={isMobile} />
+            )}
+
+            {!isAdmin && filter === 'events' && (
+              <AddEventForm defaultAuthor={defaultAuthor} onAdded={loadData} isMobile={isMobile} />
             )}
 
             {isAdmin && filter === 'pending' && pendingCount > 0 && (
@@ -426,8 +564,32 @@ export default function Dashboard({ auth, onLogout }) {
               </p>
             )}
 
-            {filter === 'history' ? (
+            {isAdmin && filter === 'events' && eventsCount > 0 && (
+              <p className="admin-banner">
+                {eventsCount} événement{eventsCount > 1 ? 's' : ''} à venir — triés par date.
+              </p>
+            )}
+
+            {isHistoryView ? (
               <HistoryView />
+            ) : isEventsView ? (
+              <>
+                {loading && <p className="state-msg">Chargement…</p>}
+                {!loading && filtered.length === 0 && (
+                  <p className="empty">
+                    {search
+                      ? 'Aucun événement trouvé.'
+                      : 'Aucun événement planifié. Les parents peuvent en ajouter ici.'}
+                  </p>
+                )}
+                {!loading && filtered.length > 0 && (
+                  isMobile ? (
+                    <EventMobileList {...eventListProps} />
+                  ) : (
+                    <EventTable {...eventListProps} />
+                  )
+                )}
+              </>
             ) : (
               <>
                 {loading && <p className="state-msg">Chargement…</p>}

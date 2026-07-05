@@ -55,4 +55,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_at);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    author TEXT NOT NULL DEFAULT 'Parent',
+    event_at TEXT NOT NULL,
+    creator_hash TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_events_at ON events(event_at);
+`);
+
 export default db;
