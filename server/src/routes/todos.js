@@ -3,6 +3,7 @@ import db from '../db.js';
 import { authMiddleware, checkRole } from '../auth.js';
 import { hashPassword, verifyPassword } from '../credentials.js';
 import { logTodoAction, getHistory } from '../dailyLog.js';
+import { parseReward } from '../rewards.js';
 
 const router = Router();
 
@@ -37,8 +38,8 @@ function parseDueAt(value) {
   return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function buildTodoUpdates(body, allowStatus) {
-  const { status, title, description, priority, duration, author, due_at } = body;
+function buildTodoUpdates(body, allowStatus, canEditReward) {
+  const { status, title, description, priority, duration, author, due_at, reward } = body;
   const updates = [];
   const params = [];
 
@@ -71,6 +72,15 @@ function buildTodoUpdates(body, allowStatus) {
     const parsed = parseDueAt(due_at);
     updates.push('due_at = ?');
     params.push(parsed);
+  }
+  if (canEditReward && reward !== undefined) {
+    try {
+      const parsedReward = parseReward(reward);
+      updates.push('reward = ?');
+      params.push(parsedReward);
+    } catch (e) {
+      throw e;
+    }
   }
 
   return { updates, params };
@@ -105,6 +115,7 @@ router.post('/', checkRole('parent'), (req, res) => {
     priority = 'normal',
     duration = 'normal',
     due_at,
+    reward = 0,
   } = req.body;
 
   if (!title?.trim()) {
@@ -120,12 +131,19 @@ router.post('/', checkRole('parent'), (req, res) => {
     return res.status(400).json({ error: e.message });
   }
 
+  let rewardAmount = 0;
+  try {
+    rewardAmount = parseReward(reward);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
   const creatorHash = hashPassword(req.token);
 
   const result = db.prepare(`
-    INSERT INTO todos (title, description, author, priority, duration, due_at, creator_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, creatorHash);
+    INSERT INTO todos (title, description, author, priority, duration, due_at, reward, creator_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, rewardAmount, creatorHash);
 
   const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
   logTodoAction(todo, 'created');
@@ -138,15 +156,22 @@ router.patch('/:id', (req, res) => {
   if (!todo) return res.status(404).json({ error: 'Objectif introuvable' });
 
   const isAdmin = req.role === 'admin';
+  const isParent = req.role === 'parent';
   const isOwner = canParentEdit(todo, req.token);
+  const wantsStatusChange = req.body.status === 'done' || req.body.status === 'pending';
 
-  if (!isAdmin && !isOwner) {
+  if (wantsStatusChange && !isParent) {
+    return res.status(403).json({ error: 'Seuls les parents peuvent valider une tâche' });
+  }
+
+  if (!wantsStatusChange && !isAdmin && !isOwner) {
     return res.status(403).json({ error: 'Vous ne pouvez pas modifier cet objectif' });
   }
 
   let updates, params;
   try {
-    ({ updates, params } = buildTodoUpdates(req.body, isAdmin));
+    const canEditReward = isOwner && todo.status === 'pending';
+    ({ updates, params } = buildTodoUpdates(req.body, isParent && wantsStatusChange, canEditReward));
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }

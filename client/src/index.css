@@ -1521,6 +1521,158 @@ select:focus {
   border-color: var(--stroke-tertiary);
 }
 
+.objective-fields.with-reward {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 1000px) {
+  .objective-fields.with-reward {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.todo-table .col-reward,
+.event-table .col-reward,
+.pocket-table .col-reward,
+.reward-cell {
+  width: 88px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.reward-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--stroke-tertiary);
+}
+
+.reward-badge.pending {
+  background: rgba(0, 120, 212, 0.1);
+  color: #9cdcfe;
+  border-color: rgba(0, 120, 212, 0.25);
+}
+
+.reward-badge.earned {
+  background: rgba(78, 201, 176, 0.12);
+  color: var(--success);
+  border-color: rgba(78, 201, 176, 0.35);
+}
+
+.tab-count.pocket-count,
+.mobile-tab-badge.pocket-badge {
+  font-size: 10px;
+  padding: 0 6px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pocket-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.pocket-hero {
+  padding: var(--space-lg);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(78, 201, 176, 0.14), rgba(0, 120, 212, 0.1));
+  border: 1px solid rgba(78, 201, 176, 0.28);
+  text-align: center;
+}
+
+.pocket-hero-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.pocket-hero-amount {
+  margin: var(--space-sm) 0;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--success);
+  letter-spacing: -0.02em;
+}
+
+.pocket-hero-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.pocket-section-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pocket-month-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.pocket-month-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 12px var(--space-md);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius);
+  background: var(--bg-editor);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pocket-month-btn:hover,
+.pocket-month-btn.active {
+  background: var(--fill-secondary);
+  border-color: var(--stroke-secondary);
+}
+
+.pocket-month-name {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.pocket-current-tag {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pocket-month-total {
+  font-weight: 600;
+  color: var(--success);
+}
+
+.pocket-task-author {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .pocket-hero-amount {
+    font-size: 32px;
+  }
+
+  .pocket-table .col-reward,
+  .pocket-table th:nth-child(2) {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 800px) {
   .event-fields {
     grid-template-columns: 1fr;

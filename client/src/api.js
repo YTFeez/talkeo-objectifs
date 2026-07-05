@@ -206,3 +206,10 @@ export const DURATION_HINTS = {
   normal: '~1 h',
   long: 'Plusieurs h',
 };
+
+export function formatMoney(amount) {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(Number(amount) || 0);
+}

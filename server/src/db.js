@@ -36,6 +36,9 @@ if (!columns.includes('duration')) {
 if (!columns.includes('due_at')) {
   db.exec('ALTER TABLE todos ADD COLUMN due_at TEXT');
 }
+if (!columns.includes('reward')) {
+  db.exec('ALTER TABLE todos ADD COLUMN reward REAL NOT NULL DEFAULT 0');
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS daily_log (

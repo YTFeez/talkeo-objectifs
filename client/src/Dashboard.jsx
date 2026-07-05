@@ -4,6 +4,7 @@ import {
   clearAuth,
   formatDay,
   formatDue,
+  formatMoney,
   DURATION_HINTS,
   getStoredAuth,
   saveAuthor,
@@ -12,12 +13,13 @@ import {
 import SettingsModal from './SettingsModal';
 import { TodoTable, TodoMobileList } from './TodoItems';
 import { EventTable, EventMobileList, EventFields } from './EventItems';
+import PocketView from './PocketView';
 import { useIsMobile } from './useMediaQuery';
 import { fromEventParts } from './api';
 
-function ObjectiveFields({ values, onChange, compact }) {
+function ObjectiveFields({ values, onChange, compact, showReward }) {
   return (
-    <div className={`objective-fields ${compact ? 'compact' : ''}`}>
+    <div className={`objective-fields ${compact ? 'compact' : ''} ${showReward ? 'with-reward' : ''}`}>
       <label className="field-inline">
         De
         <select value={values.author} onChange={(e) => onChange('author', e.target.value)}>
@@ -50,6 +52,20 @@ function ObjectiveFields({ values, onChange, compact }) {
           onChange={(e) => onChange('due_at', e.target.value)}
         />
       </label>
+      {showReward && (
+        <label className="field-inline field-reward">
+          Rémunération (€)
+          <input
+            type="number"
+            className="input-touch"
+            min="0"
+            step="0.5"
+            value={values.reward ?? ''}
+            onChange={(e) => onChange('reward', e.target.value)}
+            placeholder="0"
+          />
+        </label>
+      )}
     </div>
   );
 }
@@ -62,6 +78,7 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
     priority: 'normal',
     duration: 'normal',
     due_at: '',
+    reward: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -85,12 +102,13 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
           description,
           ...fields,
           due_at: fields.due_at || null,
+          reward: fields.reward === '' ? 0 : Number(fields.reward) || 0,
         }),
       });
       saveAuthor(fields.author);
       setTitle('');
       setDescription('');
-      setFields((f) => ({ ...f, due_at: '' }));
+      setFields((f) => ({ ...f, due_at: '', reward: '' }));
       if (!isMobile) setOpen(false);
       onAdded();
       inputRef.current?.focus();
@@ -124,10 +142,10 @@ function AddForm({ defaultAuthor, onAdded, isMobile }) {
             rows={2}
           />
         )}
-        {(open || isMobile) && <ObjectiveFields values={fields} onChange={updateField} />}
+        {(open || isMobile) && <ObjectiveFields values={fields} onChange={updateField} showReward />}
         <div className="add-row">
           {!open && !isMobile && (
-            <ObjectiveFields values={fields} onChange={updateField} compact />
+            <ObjectiveFields values={fields} onChange={updateField} compact showReward />
           )}
           <button type="submit" className="btn btn-primary btn-touch add-submit" disabled={loading || !title.trim()}>
             {loading ? 'Ajout…' : '+ Ajouter'}
@@ -300,6 +318,7 @@ const TAB_ICONS = {
   pending: '○',
   events: '◇',
   done: '✓',
+  pocket: '€',
   history: '◷',
   all: '≡',
 };
@@ -308,6 +327,7 @@ const TAB_SHORT = {
   pending: 'Attente',
   events: 'Agenda',
   done: 'Fait',
+  pocket: 'Poche',
   history: 'Journal',
   all: 'Tous',
 };
@@ -320,6 +340,7 @@ export default function Dashboard({ auth, onLogout }) {
   const [events, setEvents] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [eventsCount, setEventsCount] = useState(0);
+  const [pocketTotal, setPocketTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -329,14 +350,21 @@ export default function Dashboard({ auth, onLogout }) {
 
   const loadData = useCallback(async () => {
     const isHistory = filter === 'history';
-    if (!isHistory) setLoading(true);
+    const isPocket = filter === 'pocket';
+    if (!isHistory && !isPocket) setLoading(true);
     try {
       const { todos: pending } = await api('/todos?status=pending');
       setPendingCount(pending.length);
       const { events: upcoming } = await api('/events?upcoming=1');
       setEventsCount(upcoming.length);
+      if (isAdmin) {
+        const summary = await api('/rewards/summary');
+        setPocketTotal(summary.current.total);
+      } else {
+        setPocketTotal(0);
+      }
 
-      if (isHistory) return;
+      if (isHistory || isPocket) return;
 
       if (filter === 'events') {
         const { events: list } = await api('/events');
@@ -350,7 +378,7 @@ export default function Dashboard({ auth, onLogout }) {
       clearAuth();
       onLogout();
     } finally {
-      if (!isHistory) setLoading(false);
+      if (!isHistory && !isPocket) setLoading(false);
     }
   }, [filter, onLogout]);
 
@@ -421,6 +449,7 @@ export default function Dashboard({ auth, onLogout }) {
     { id: 'pending', label: 'En attente', count: pendingCount },
     { id: 'events', label: 'Événements', count: eventsCount },
     { id: 'done', label: 'Terminés' },
+    ...(isAdmin ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal) }] : []),
     { id: 'history', label: 'Historique' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous' }] : []),
   ];
@@ -429,21 +458,24 @@ export default function Dashboard({ auth, onLogout }) {
     pending: 'À faire',
     events: 'Événements',
     done: 'Terminés',
+    pocket: 'Argent de poche',
     history: 'Historique',
     all: 'Tous les objectifs',
   }[filter];
 
   const isEventsView = filter === 'events';
   const isHistoryView = filter === 'history';
-  const showSearch = !isHistoryView;
+  const isPocketView = filter === 'pocket';
+  const showSearch = !isHistoryView && !isPocketView;
 
   const todoListProps = {
     todos: filtered,
     isAdmin,
+    canValidate: !isAdmin,
     onToggle: handleToggle,
     onDelete: handleDelete,
     onEdit: handleEdit,
-    ObjectiveFields,
+    ObjectiveFields: (props) => <ObjectiveFields {...props} showReward={!isAdmin} />,
   };
 
   const eventListProps = {
@@ -460,7 +492,7 @@ export default function Dashboard({ auth, onLogout }) {
           <div className="mobile-top-main">
             <h1>Talkeo</h1>
             <p className="mobile-top-meta">
-              {pendingCount} attente · {eventsCount} évén. · {isAdmin ? ROLE_LABELS.admin : 'Parents'}
+              {pendingCount} attente · {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : 'Parents'}
             </p>
           </div>
           <button
@@ -509,7 +541,9 @@ export default function Dashboard({ auth, onLogout }) {
           </button>
         </div>
         <span className="meta">
-          {pendingCount} en attente · {eventsCount} événement{eventsCount !== 1 ? 's' : ''} · {isAdmin ? `Espace ${ROLE_LABELS.admin}` : 'Espace parents'}
+          {pendingCount} en attente · {eventsCount} événement{eventsCount !== 1 ? 's' : ''}
+          {isAdmin && ` · ${formatMoney(pocketTotal)} ce mois`}
+          {' · '}{isAdmin ? `Espace ${ROLE_LABELS.admin}` : 'Espace parents'}
         </span>
       </header>
 
@@ -526,13 +560,17 @@ export default function Dashboard({ auth, onLogout }) {
               >
                 <span className="name">
                   {tab.label}
-                  {tab.count != null && tab.count > 0 && (
+                  {tab.countLabel && (
+                    <span className="tab-count pocket-count">{tab.countLabel}</span>
+                  )}
+                  {!tab.countLabel && tab.count != null && tab.count > 0 && (
                     <span className="tab-count">{tab.count}</span>
                   )}
                 </span>
                 {tab.id === 'pending' && <span className="sub">Objectifs à réaliser</span>}
                 {tab.id === 'events' && <span className="sub">Rendez-vous et activités planifiés</span>}
                 {tab.id === 'done' && <span className="sub">Déjà terminés</span>}
+                {tab.id === 'pocket' && <span className="sub">Rémunération mensuelle — repart à zéro le 1er</span>}
                 {tab.id === 'history' && <span className="sub">Journal des 30 derniers jours</span>}
                 {tab.id === 'all' && <span className="sub">Vue complète admin</span>}
               </button>
@@ -543,10 +581,13 @@ export default function Dashboard({ auth, onLogout }) {
         <div className="card main-card">
           <div className="card-header">
             <span>{filterTitle}</span>
-            {filter !== 'history' && !loading && (
+            {filter !== 'history' && filter !== 'pocket' && !loading && (
               <span className="hint">
                 {filtered.length} {isEventsView ? `événement${filtered.length !== 1 ? 's' : ''}` : `objectif${filtered.length !== 1 ? 's' : ''}`}
               </span>
+            )}
+            {isPocketView && !loading && (
+              <span className="hint">{formatMoney(pocketTotal)} ce mois</span>
             )}
           </div>
           <div className="card-body main-card-body">
@@ -572,6 +613,8 @@ export default function Dashboard({ auth, onLogout }) {
 
             {isHistoryView ? (
               <HistoryView />
+            ) : isPocketView ? (
+              <PocketView key={`${pocketTotal}-${filter}`} />
             ) : isEventsView ? (
               <>
                 {loading && <p className="state-msg">Chargement…</p>}
@@ -627,9 +670,11 @@ export default function Dashboard({ auth, onLogout }) {
             >
               <span className="mobile-tab-icon" aria-hidden>{TAB_ICONS[tab.id]}</span>
               <span className="mobile-tab-label">{TAB_SHORT[tab.id] || tab.label}</span>
-              {tab.count != null && tab.count > 0 && (
+              {tab.countLabel ? (
+                <span className="mobile-tab-badge pocket-badge">{tab.countLabel}</span>
+              ) : tab.count != null && tab.count > 0 ? (
                 <span className="mobile-tab-badge">{tab.count}</span>
-              )}
+              ) : null}
             </button>
           ))}
         </nav>

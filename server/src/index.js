@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import todoRoutes from './routes/todos.js';
 import eventRoutes from './routes/events.js';
+import rewardRoutes from './routes/rewards.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +24,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/todos', todoRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/rewards', rewardRoutes);
 
 function resolveClientDist() {
   const candidates = [

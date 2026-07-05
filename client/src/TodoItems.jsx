@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   formatDate,
   formatDue,
+  formatMoney,
   isOverdue,
   toDatetimeLocal,
   PRIORITY_LABELS,
@@ -46,6 +47,16 @@ export function TodoEditForm({ title, setTitle, description, setDescription, fie
   );
 }
 
+function RewardBadge({ todo }) {
+  const amount = Number(todo.reward) || 0;
+  if (amount <= 0) return null;
+  return (
+    <span className={`reward-badge ${todo.status === 'done' ? 'earned' : 'pending'}`}>
+      {formatMoney(amount)}
+    </span>
+  );
+}
+
 function useTodoEditor(todo, onEdit) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
@@ -55,6 +66,7 @@ function useTodoEditor(todo, onEdit) {
     priority: todo.priority || 'normal',
     duration: todo.duration || 'normal',
     due_at: toDatetimeLocal(todo.due_at),
+    reward: todo.reward || 0,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -68,6 +80,7 @@ function useTodoEditor(todo, onEdit) {
         description,
         ...fields,
         due_at: fields.due_at || null,
+        reward: fields.reward === '' ? 0 : Number(fields.reward) || 0,
       });
       setEditing(false);
     } catch (err) {
@@ -110,7 +123,7 @@ function todoCardClass(todo) {
   ].filter(Boolean).join(' ');
 }
 
-function TodoActions({ todo, isAdmin, onToggle, onDelete, onEditStart, layout }) {
+function TodoActions({ todo, isAdmin, onDelete, onEditStart, layout }) {
   const canEditPending = (isAdmin || todo.can_edit) && todo.status === 'pending';
   const canManageDone = isAdmin && todo.status === 'done';
   const btnClass = layout === 'mobile' ? 'btn btn-secondary btn-touch' : 'link-btn';
@@ -133,14 +146,9 @@ function TodoActions({ todo, isAdmin, onToggle, onDelete, onEditStart, layout })
         </button>
       )}
       {canManageDone && (
-        <>
-          <button type="button" className={btnClass} onClick={() => onToggle(todo)}>
-            Réouvrir
-          </button>
-          <button type="button" className={dangerClass} onClick={() => onDelete(todo.id)}>
-            Supprimer
-          </button>
-        </>
+        <button type="button" className={dangerClass} onClick={() => onDelete(todo.id)}>
+          Supprimer
+        </button>
       )}
     </>
   );
@@ -152,7 +160,7 @@ function TodoActions({ todo, isAdmin, onToggle, onDelete, onEditStart, layout })
   return <div className="todo-mobile-actions">{content}</div>;
 }
 
-export function TodoRow({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFields, colSpan }) {
+export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields, colSpan }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -173,7 +181,7 @@ export function TodoRow({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFi
 
   return (
     <tr className={todoRowClass(todo)}>
-      {isAdmin && (
+      {canValidate && (
         <td className="col-check">
           <button
             type="button"
@@ -186,6 +194,9 @@ export function TodoRow({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFi
       <td className="col-title">
         <span className="todo-title">{todo.title}</span>
         {todo.description && <p className="todo-desc">{todo.description}</p>}
+      </td>
+      <td className="col-reward">
+        {Number(todo.reward) > 0 ? <RewardBadge todo={todo} /> : <span className="hint">—</span>}
       </td>
       <td className="col-priority">
         <Badge type="priority" value={todo.priority || 'normal'} />
@@ -216,7 +227,6 @@ export function TodoRow({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFi
       <TodoActions
         todo={todo}
         isAdmin={isAdmin}
-        onToggle={onToggle}
         onDelete={onDelete}
         onEditStart={() => editor.setEditing(true)}
         layout="desktop"
@@ -225,7 +235,7 @@ export function TodoRow({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFi
   );
 }
 
-export function TodoMobileCard({ todo, isAdmin, onToggle, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -245,7 +255,7 @@ export function TodoMobileCard({ todo, isAdmin, onToggle, onDelete, onEdit, Obje
   return (
     <article className={todoCardClass(todo)}>
       <div className="todo-mobile-header">
-        {isAdmin && (
+        {canValidate && (
           <button
             type="button"
             className={`check-btn check-btn-lg ${todo.status === 'done' ? 'checked' : ''}`}
@@ -259,6 +269,7 @@ export function TodoMobileCard({ todo, isAdmin, onToggle, onDelete, onEdit, Obje
         </div>
       </div>
       <div className="todo-mobile-badges">
+        <RewardBadge todo={todo} />
         <Badge type="priority" value={todo.priority || 'normal'} />
         <Badge type="duration" value={todo.duration || 'normal'} />
         {todo.due_at && (
@@ -281,7 +292,6 @@ export function TodoMobileCard({ todo, isAdmin, onToggle, onDelete, onEdit, Obje
       <TodoActions
         todo={todo}
         isAdmin={isAdmin}
-        onToggle={onToggle}
         onDelete={onDelete}
         onEditStart={() => editor.setEditing(true)}
         layout="mobile"
@@ -290,15 +300,16 @@ export function TodoMobileCard({ todo, isAdmin, onToggle, onDelete, onEdit, Obje
   );
 }
 
-export function TodoTable({ todos, isAdmin, onToggle, onDelete, onEdit, ObjectiveFields }) {
-  const colSpan = isAdmin ? 7 : 6;
+export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
+  const colSpan = canValidate ? 8 : 7;
   return (
     <div className="table-wrap todo-table desktop-only">
       <table>
         <thead>
           <tr>
-            {isAdmin && <th className="col-check" aria-label="Terminer" />}
+            {canValidate && <th className="col-check" aria-label="Terminer" />}
             <th>Objectif</th>
+            <th className="col-reward">Gain</th>
             <th className="col-priority">Priorité</th>
             <th className="col-duration">Durée</th>
             <th className="col-due">Échéance</th>
@@ -312,6 +323,7 @@ export function TodoTable({ todos, isAdmin, onToggle, onDelete, onEdit, Objectiv
               key={todo.id}
               todo={todo}
               isAdmin={isAdmin}
+              canValidate={canValidate}
               onToggle={onToggle}
               onDelete={onDelete}
               onEdit={onEdit}
@@ -325,7 +337,7 @@ export function TodoTable({ todos, isAdmin, onToggle, onDelete, onEdit, Objectiv
   );
 }
 
-export function TodoMobileList({ todos, isAdmin, onToggle, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileList({ todos, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
   return (
     <div className="todo-mobile-list mobile-only">
       {todos.map((todo) => (
@@ -333,6 +345,7 @@ export function TodoMobileList({ todos, isAdmin, onToggle, onDelete, onEdit, Obj
           key={todo.id}
           todo={todo}
           isAdmin={isAdmin}
+          canValidate={canValidate}
           onToggle={onToggle}
           onDelete={onDelete}
           onEdit={onEdit}
