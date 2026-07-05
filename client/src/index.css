@@ -1131,22 +1131,104 @@ select:focus {
 }
 
 .todo-card {
-  background: var(--bg-editor);
-  border: 1px solid var(--stroke-tertiary);
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    rgba(0, 120, 212, 0.07) 0%,
+    var(--bg-editor) 38%,
+    rgba(78, 154, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(0, 120, 212, 0.14);
   border-radius: var(--radius);
   overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(0, 120, 212, 0.06) inset,
+    0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.todo-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    -14deg,
+    transparent 0 18px,
+    rgba(0, 120, 212, 0.045) 18px 19px,
+    transparent 19px 36px,
+    rgba(78, 154, 255, 0.03) 36px 37px
+  );
+  pointer-events: none;
+}
+
+.todo-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 120, 212, 0.55) 20%,
+    rgba(157, 205, 255, 0.45) 50%,
+    rgba(0, 120, 212, 0.55) 80%,
+    transparent
+  );
+  pointer-events: none;
 }
 
 .todo-card.priority-high {
-  border-left: 3px solid var(--danger);
+  background: linear-gradient(
+    160deg,
+    rgba(241, 76, 76, 0.08) 0%,
+    rgba(0, 120, 212, 0.06) 28%,
+    var(--bg-editor) 55%,
+    rgba(78, 154, 255, 0.05) 100%
+  );
+  border-color: rgba(0, 120, 212, 0.18);
+  box-shadow:
+    0 1px 0 rgba(157, 205, 255, 0.08) inset,
+    0 0 0 1px rgba(241, 76, 76, 0.08) inset,
+    0 8px 22px rgba(0, 0, 0, 0.14);
+}
+
+.todo-card.priority-high::before {
+  background: repeating-linear-gradient(
+    -14deg,
+    transparent 0 18px,
+    rgba(241, 76, 76, 0.05) 18px 19px,
+    transparent 19px 36px,
+    rgba(0, 120, 212, 0.04) 36px 37px
+  );
 }
 
 .todo-card.priority-normal {
-  border-left: 3px solid var(--accent);
+  background: linear-gradient(
+    160deg,
+    rgba(0, 120, 212, 0.09) 0%,
+    var(--bg-editor) 42%,
+    rgba(78, 154, 255, 0.06) 100%
+  );
 }
 
 .todo-card.priority-low {
-  border-left: 3px solid var(--text-quaternary);
+  background: linear-gradient(
+    160deg,
+    rgba(0, 120, 212, 0.03) 0%,
+    var(--bg-editor) 50%,
+    rgba(110, 110, 110, 0.04) 100%
+  );
+  border-color: rgba(0, 120, 212, 0.08);
+}
+
+.todo-card.priority-low::before {
+  opacity: 0.45;
+}
+
+.todo-card.priority-low::after {
+  opacity: 0.35;
 }
 
 .todo-card.done {
@@ -1159,7 +1241,21 @@ select:focus {
 }
 
 .todo-card.overdue-card {
-  border-color: rgba(241, 76, 76, 0.45);
+  border-color: rgba(241, 76, 76, 0.35);
+  box-shadow:
+    0 1px 0 rgba(241, 76, 76, 0.1) inset,
+    0 8px 20px rgba(241, 76, 76, 0.08);
+}
+
+.todo-card.overdue-card::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(241, 76, 76, 0.5) 20%,
+    rgba(157, 205, 255, 0.35) 50%,
+    rgba(241, 76, 76, 0.5) 80%,
+    transparent
+  );
 }
 
 .todo-card.editing {
@@ -1167,6 +1263,8 @@ select:focus {
 }
 
 .card-main {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 10px;
   padding: 12px;
@@ -1268,11 +1366,14 @@ select:focus {
 }
 
 .card-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 6px;
   padding: 8px 12px;
-  border-top: 1px solid var(--stroke-tertiary);
-  background: var(--bg-chrome);
+  border-top: 1px solid rgba(0, 120, 212, 0.1);
+  background: rgba(37, 37, 38, 0.72);
+  backdrop-filter: blur(4px);
 }
 
 .card-actions .btn {
@@ -1304,6 +1405,8 @@ select:focus {
 }
 
 .edit-form {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
