@@ -2879,8 +2879,108 @@ button.home-stat-card:hover {
 }
 
 .add-form-compact h3,
-.add-form-compact .task-suggestions {
+.add-form-compact .task-suggestions-hint {
   display: none;
+}
+
+.task-suggestions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.task-suggestions-add-toggle {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.task-suggestion-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: 10px;
+  background: var(--fill-secondary);
+  border: 1px solid var(--stroke-tertiary);
+}
+
+.task-suggestion-add-form input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.task-suggestion-add-form .btn {
+  width: 100%;
+}
+
+.task-suggestions-loading {
+  margin: 0;
+  font-size: 12px;
+}
+
+.task-suggestion-chip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+}
+
+.task-suggestion-chip .task-suggestion-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.task-suggestion-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+  border: 1px solid var(--stroke-tertiary);
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  background: var(--bg-chrome);
+  color: var(--text-tertiary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.task-suggestion-remove:hover {
+  color: var(--danger);
+  background: rgba(241, 76, 76, 0.1);
+}
+
+.task-suggestions-compact .task-suggestion-chip {
+  flex-shrink: 0;
+}
+
+.task-suggestions-compact .task-suggestions-list {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.task-suggestions-compact .task-suggestions-list::-webkit-scrollbar {
+  display: none;
+}
+
+.task-suggestions-compact .task-suggestion-btn {
+  flex-shrink: 0;
+}
+
+.task-suggestion-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.task-suggestions-hint {
+  margin: var(--space-sm) 0 0;
+  font-size: 12px;
 }
 
 /* ——— Todo validate CTA ——— */

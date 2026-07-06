@@ -16,18 +16,10 @@ import HomeView from './HomeView';
 import { TodoTable, TodoMobileList } from './TodoItems';
 import { EventTable, EventMobileList, EventFields } from './EventItems';
 import PocketView from './PocketView';
+import TaskQuickSuggestions from './TaskQuickSuggestions';
 import { useIsMobile } from './useMediaQuery';
 import { useToast } from './useToast.jsx';
 import { fromEventParts } from './api';
-
-const TASK_SUGGESTIONS = [
-  { title: 'Ranger la chambre', reward: 2.5, duration: 'normal', priority: 'normal' },
-  { title: 'Faire la vaisselle', reward: 1, duration: 'short', priority: 'normal' },
-  { title: 'Sortir le chien', reward: 1.5, duration: 'short', priority: 'high' },
-  { title: 'Devoirs du soir', reward: 3, duration: 'normal', priority: 'high' },
-  { title: 'Vider le lave-vaisselle', reward: 1, duration: 'short', priority: 'low' },
-  { title: 'Arroser les plantes', reward: 1, duration: 'short', priority: 'low' },
-];
 
 const MOBILE_TABS = [
   { id: 'home', label: 'Accueil', icon: '⌂' },
@@ -144,21 +136,16 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact }) {
     }
   }
 
-  function applySuggestion(suggestion) {
-    setTitle(suggestion.title);
-    setFields((f) => ({
-      ...f,
-      reward: suggestion.reward,
-      duration: suggestion.duration,
-      priority: suggestion.priority,
-    }));
-    setOpen(true);
-    inputRef.current?.focus();
-  }
-
   return (
     <section className={`add-form-section ${isMobile ? 'add-form-mobile' : ''} ${compact ? 'add-form-compact' : ''}`}>
       {!compact && <h3>Nouvel objectif</h3>}
+      <TaskQuickSuggestions
+        defaultAuthor={fields.author}
+        onAdded={onAdded}
+        onSuccess={onSuccess}
+        compact={compact}
+        canManage
+      />
       <form className="add-form" onSubmit={handleSubmit}>
         <input
           ref={inputRef}
@@ -193,22 +180,7 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact }) {
         {error && <p className="form-error">{error}</p>}
       </form>
       {!compact && (
-        <div className="task-suggestions">
-          <span className="task-suggestions-label">Idées rapides :</span>
-          <div className="task-suggestions-list">
-            {TASK_SUGGESTIONS.map((suggestion) => (
-              <button
-                key={suggestion.title}
-                type="button"
-                className="task-suggestion-btn"
-                onClick={() => applySuggestion(suggestion)}
-              >
-                {suggestion.title}
-                <span className="suggestion-reward">{formatMoney(suggestion.reward)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <p className="hint task-suggestions-hint">Ou personnalisez avec le formulaire ci-dessous.</p>
       )}
     </section>
   );
@@ -750,8 +722,23 @@ export default function Dashboard({ auth, onLogout }) {
               />
             )}
 
+            {!isAdmin && isMobile && filter === 'pending' && (
+              <TaskQuickSuggestions
+                defaultAuthor={defaultAuthor}
+                onAdded={loadData}
+                onSuccess={(msg, type) => toast(msg, type || 'success')}
+                compact
+                canManage
+              />
+            )}
+
             {!isAdmin && !isMobile && filter === 'pending' && (
-              <AddForm defaultAuthor={defaultAuthor} onAdded={loadData} isMobile={false} onSuccess={toast} />
+              <AddForm
+                defaultAuthor={defaultAuthor}
+                onAdded={loadData}
+                isMobile={false}
+                onSuccess={(msg, type) => toast(msg, type || 'success')}
+              />
             )}
 
             {!isAdmin && !isMobile && filter === 'events' && (
@@ -779,6 +766,9 @@ export default function Dashboard({ auth, onLogout }) {
                 onNavigate={navigate}
                 onToggle={handleToggle}
                 canValidate={!isAdmin}
+                defaultAuthor={defaultAuthor}
+                onQuickAdded={loadData}
+                onToast={(msg, type) => toast(msg, type || 'success')}
               />
             ) : isHistoryView ? (
               <HistoryView />
@@ -863,7 +853,7 @@ export default function Dashboard({ auth, onLogout }) {
                 onAdded={() => { loadData(); setAddSheet(null); }}
                 isMobile
                 compact
-                onSuccess={toast}
+                onSuccess={(msg, type) => toast(msg, type || 'success')}
               />
             ) : (
               <AddForm
@@ -871,7 +861,7 @@ export default function Dashboard({ auth, onLogout }) {
                 onAdded={() => { loadData(); setAddSheet(null); }}
                 isMobile
                 compact
-                onSuccess={toast}
+                onSuccess={(msg, type) => toast(msg, type || 'success')}
               />
             )}
             <button type="button" className="btn btn-secondary btn-touch mobile-sheet-close" onClick={() => setAddSheet(null)}>

@@ -74,4 +74,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_at ON events(event_at);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    reward REAL NOT NULL DEFAULT 0,
+    priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low', 'normal', 'high')),
+    duration TEXT NOT NULL DEFAULT 'normal' CHECK(duration IN ('short', 'normal', 'long')),
+    is_builtin INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 export default db;

@@ -1,4 +1,5 @@
 import { formatDue, formatMoney, formatEventAt, ROLE_LABELS, isOverdue } from './api';
+import TaskQuickSuggestions from './TaskQuickSuggestions';
 
 function StatCard({ label, value, sub, accent, onClick }) {
   const Tag = onClick ? 'button' : 'div';
@@ -35,6 +36,9 @@ export default function HomeView({
   onNavigate,
   onToggle,
   canValidate,
+  defaultAuthor,
+  onQuickAdded,
+  onToast,
 }) {
   const greeting = isAdmin ? `Salut ${ROLE_LABELS.admin} 👋` : 'Bonjour 👋';
   const topPending = pendingTodos.slice(0, isMobile ? 4 : 5);
@@ -84,6 +88,16 @@ export default function HomeView({
           />
         )}
       </div>
+
+      {!isAdmin && (
+        <TaskQuickSuggestions
+          defaultAuthor={defaultAuthor}
+          onAdded={onQuickAdded}
+          onSuccess={onToast}
+          compact={isMobile}
+          canManage
+        />
+      )}
 
       {!isAdmin && (
         <div className="home-quick-actions">
