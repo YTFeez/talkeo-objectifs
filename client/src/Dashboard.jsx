@@ -28,7 +28,7 @@ const MOBILE_TABS = [
   { id: 'more', label: 'Plus', icon: '⋯' },
 ];
 
-const TASK_SEGMENTS = [
+const TASK_SEGMENTS_BASE = [
   { id: 'pending', label: 'À faire' },
   { id: 'done', label: 'Terminés' },
 ];
@@ -86,7 +86,7 @@ function ObjectiveFields({ values, onChange, compact, showReward }) {
   );
 }
 
-function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact }) {
+function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedded }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState({
@@ -138,7 +138,7 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact }) {
 
   return (
     <section className={`add-form-section ${isMobile ? 'add-form-mobile' : ''} ${compact ? 'add-form-compact' : ''}`}>
-      {!compact && <h3>Nouvel objectif</h3>}
+      {!compact && !embedded && <h3>Nouvel objectif</h3>}
       <TaskQuickSuggestions
         defaultAuthor={fields.author}
         onAdded={onAdded}
@@ -609,8 +609,18 @@ export default function Dashboard({ auth, onLogout }) {
     EventFields,
   };
 
-  const showFab = isMobile && !isAdmin && (isHomeView || isTaskFilter(filter) || isEventsView);
-  const fabLabel = isEventsView ? 'Événement' : 'Objectif';
+  const taskSegments = useMemo(
+    () => [
+      ...TASK_SEGMENTS_BASE.map((s) => ({
+        ...s,
+        count: s.id === 'pending' ? pendingCount : undefined,
+      })),
+      ...(isAdmin ? [{ id: 'all', label: 'Tous' }] : []),
+    ],
+    [pendingCount, isAdmin],
+  );
+
+  const showFab = isMobile && !isAdmin && isHomeView;
 
   return (
     <div className={`app app-dashboard v2 ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
@@ -711,41 +721,39 @@ export default function Dashboard({ auth, onLogout }) {
           )}
 
           <div className="card-body main-card-body">
-            {isMobile && isTaskFilter(filter) && filter !== 'all' && (
+            {isMobile && isTaskFilter(filter) && (
               <SegmentControl
-                segments={TASK_SEGMENTS.map((s) => ({
-                  ...s,
-                  count: s.id === 'pending' ? pendingCount : undefined,
-                }))}
+                segments={taskSegments}
                 value={filter}
                 onChange={setFilter}
               />
             )}
 
-            {!isAdmin && isMobile && filter === 'pending' && (
-              <TaskQuickSuggestions
-                defaultAuthor={defaultAuthor}
-                onAdded={loadData}
-                onSuccess={(msg, type) => toast(msg, type || 'success')}
-                compact
-                canManage
-              />
+            {isMobile && showSearch && !loading && filter !== 'history' && filter !== 'pocket' && (
+              <p className="mobile-view-count hint">
+                {filtered.length} {isEventsView ? `événement${filtered.length !== 1 ? 's' : ''}` : `objectif${filtered.length !== 1 ? 's' : ''}`}
+              </p>
             )}
 
-            {!isAdmin && !isMobile && filter === 'pending' && (
+            {!isAdmin && filter === 'pending' && (
               <AddForm
                 defaultAuthor={defaultAuthor}
                 onAdded={loadData}
-                isMobile={false}
+                isMobile={isMobile}
                 onSuccess={(msg, type) => toast(msg, type || 'success')}
               />
             )}
 
-            {!isAdmin && !isMobile && filter === 'events' && (
-              <AddEventForm defaultAuthor={defaultAuthor} onAdded={loadData} isMobile={false} onSuccess={toast} />
+            {!isAdmin && filter === 'events' && (
+              <AddEventForm
+                defaultAuthor={defaultAuthor}
+                onAdded={loadData}
+                isMobile={isMobile}
+                onSuccess={(msg, type) => toast(msg, type || 'success')}
+              />
             )}
 
-            {isAdmin && isTaskFilter(filter) && filter !== 'all' && (
+            {isAdmin && isTaskFilter(filter) && (
               <p className="admin-banner admin-banner-actions">
                 <span>Charger des tâches d&apos;exemple pour démarrer.</span>
                 <button type="button" className="btn btn-secondary btn-touch" onClick={handleDemoSeed}>
@@ -833,8 +841,8 @@ export default function Dashboard({ auth, onLogout }) {
         <button
           type="button"
           className="fab"
-          onClick={() => setAddSheet(isEventsView ? 'event' : 'todo')}
-          aria-label={`Ajouter un ${fabLabel.toLowerCase()}`}
+          onClick={() => setAddSheet('todo')}
+          aria-label="Ajouter un objectif"
         >
           +
         </button>
@@ -842,28 +850,15 @@ export default function Dashboard({ auth, onLogout }) {
 
       {addSheet && (
         <div className="mobile-sheet-overlay" onClick={() => setAddSheet(null)}>
-          <div className="mobile-sheet add-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="mobile-sheet add-sheet add-sheet-full" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-sheet-handle" aria-hidden />
-            <h3 className="add-sheet-title">
-              {addSheet === 'event' ? 'Nouvel événement' : 'Nouvel objectif'}
-            </h3>
-            {addSheet === 'event' ? (
-              <AddEventForm
-                defaultAuthor={defaultAuthor}
-                onAdded={() => { loadData(); setAddSheet(null); }}
-                isMobile
-                compact
-                onSuccess={(msg, type) => toast(msg, type || 'success')}
-              />
-            ) : (
-              <AddForm
-                defaultAuthor={defaultAuthor}
-                onAdded={() => { loadData(); setAddSheet(null); }}
-                isMobile
-                compact
-                onSuccess={(msg, type) => toast(msg, type || 'success')}
-              />
-            )}
+            <AddForm
+              defaultAuthor={defaultAuthor}
+              onAdded={() => { loadData(); setAddSheet(null); }}
+              isMobile
+              embedded
+              onSuccess={(msg, type) => toast(msg, type || 'success')}
+            />
             <button type="button" className="btn btn-secondary btn-touch mobile-sheet-close" onClick={() => setAddSheet(null)}>
               Fermer
             </button>
@@ -880,9 +875,21 @@ export default function Dashboard({ auth, onLogout }) {
               <span className="hint">{isAdmin ? 'Espace Aronne' : 'Espace parents'}</span>
             </div>
             <nav className="more-menu">
+              <button type="button" className="more-menu-item" onClick={() => navigate('home')}>
+                <span>Accueil</span>
+                <span className="hint">Vue d&apos;ensemble</span>
+              </button>
+              <button type="button" className="more-menu-item" onClick={() => navigate('pending')}>
+                <span>En attente</span>
+                <span className="hint">{pendingCount} objectif{pendingCount !== 1 ? 's' : ''}</span>
+              </button>
               <button type="button" className="more-menu-item" onClick={() => navigate('done')}>
                 <span>Terminés</span>
                 <span className="hint">Objectifs validés</span>
+              </button>
+              <button type="button" className="more-menu-item" onClick={() => navigate('events')}>
+                <span>Événements</span>
+                <span className="hint">{eventsCount} à venir</span>
               </button>
               {isAdmin && (
                 <button type="button" className="more-menu-item accent" onClick={() => navigate('pocket')}>
@@ -897,6 +904,16 @@ export default function Dashboard({ auth, onLogout }) {
               {isAdmin && (
                 <button type="button" className="more-menu-item" onClick={() => navigate('all')}>
                   <span>Tous les objectifs</span>
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="more-menu-item"
+                  onClick={() => { setMoreOpen(false); handleDemoSeed(); }}
+                >
+                  <span>Charger les exemples</span>
+                  <span className="hint">Tâches de démonstration</span>
                 </button>
               )}
             </nav>

@@ -118,7 +118,7 @@ function useEventEditor(event, onEdit) {
 }
 
 function EventActions({ event, onDelete, onEditStart, layout }) {
-  if (!event.can_edit) {
+  if (!event.can_edit && !event.can_delete) {
     return layout === 'desktop' ? <td className="actions" /> : null;
   }
 
@@ -127,12 +127,16 @@ function EventActions({ event, onDelete, onEditStart, layout }) {
 
   const content = (
     <>
-      <button type="button" className={btnClass} onClick={onEditStart}>
-        Modifier
-      </button>
-      <button type="button" className={dangerClass} onClick={() => onDelete(event.id)}>
-        Supprimer
-      </button>
+      {event.can_edit && (
+        <button type="button" className={btnClass} onClick={onEditStart}>
+          Modifier
+        </button>
+      )}
+      {event.can_delete && (
+        <button type="button" className={dangerClass} onClick={() => onDelete(event.id)}>
+          Supprimer
+        </button>
+      )}
     </>
   );
 

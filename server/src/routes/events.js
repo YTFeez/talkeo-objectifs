@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authMiddleware, checkRole } from '../auth.js';
-import { hashPassword, verifyPassword } from '../credentials.js';
+import { hashPassword } from '../credentials.js';
 
 const router = Router();
 
@@ -13,15 +13,12 @@ const SORT_ORDER = `
     event_at ASC
 `;
 
-function canParentEdit(event, token) {
-  if (!event.creator_hash) return false;
-  return verifyPassword(token, event.creator_hash);
-}
-
-function enrichEvent(event, role, token) {
+function enrichEvent(event, role) {
+  const isParent = role === 'parent';
   return {
     ...event,
-    can_edit: role === 'admin' || canParentEdit(event, token),
+    can_edit: role === 'admin' || isParent,
+    can_delete: role === 'admin' || isParent,
   };
 }
 
@@ -43,7 +40,7 @@ router.get('/', (req, res) => {
 
   sql += SORT_ORDER;
 
-  const events = db.prepare(sql).all(...params).map((e) => enrichEvent(e, req.role, req.token));
+  const events = db.prepare(sql).all(...params).map((e) => enrichEvent(e, req.role));
   res.json({ events, role: req.role });
 });
 
@@ -69,7 +66,7 @@ router.post('/', checkRole('parent'), (req, res) => {
   `).run(title.trim(), description.trim(), author.trim() || 'Parent', at, creatorHash);
 
   const event = db.prepare('SELECT * FROM events WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json({ event: enrichEvent(event, req.role, req.token) });
+  res.status(201).json({ event: enrichEvent(event, req.role) });
 });
 
 router.patch('/:id', (req, res) => {
@@ -77,9 +74,9 @@ router.patch('/:id', (req, res) => {
   if (!event) return res.status(404).json({ error: 'Événement introuvable' });
 
   const isAdmin = req.role === 'admin';
-  const isOwner = canParentEdit(event, req.token);
+  const isParent = req.role === 'parent';
 
-  if (!isAdmin && !isOwner) {
+  if (!isAdmin && !isParent) {
     return res.status(403).json({ error: 'Vous ne pouvez pas modifier cet événement' });
   }
 
@@ -117,7 +114,7 @@ router.patch('/:id', (req, res) => {
   db.prepare(`UPDATE events SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
   const updated = db.prepare('SELECT * FROM events WHERE id = ?').get(req.params.id);
-  res.json({ event: enrichEvent(updated, req.role, req.token) });
+  res.json({ event: enrichEvent(updated, req.role) });
 });
 
 router.delete('/:id', (req, res) => {
@@ -125,9 +122,9 @@ router.delete('/:id', (req, res) => {
   if (!event) return res.status(404).json({ error: 'Événement introuvable' });
 
   const isAdmin = req.role === 'admin';
-  const isOwner = canParentEdit(event, req.token);
+  const isParent = req.role === 'parent';
 
-  if (!isAdmin && !isOwner) {
+  if (!isAdmin && !isParent) {
     return res.status(403).json({ error: 'Vous ne pouvez pas supprimer cet événement' });
   }
 

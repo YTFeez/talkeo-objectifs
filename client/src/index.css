@@ -3038,6 +3038,34 @@ button.home-stat-card:hover {
 
 /* ——— V2 mobile overrides ——— */
 @media (max-width: 768px) {
+  .mobile-view-count {
+    margin: 0 0 var(--space-sm);
+    font-size: 12px;
+  }
+
+  .add-sheet-full {
+    max-height: min(92dvh, 720px);
+    overflow-y: auto;
+  }
+
+  .add-sheet-full .add-form-section {
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+  }
+
+  .segment-control {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .segment-btn {
+    flex: 1 0 auto;
+    min-width: 88px;
+  }
+
   .v2-tab-bar {
     justify-content: space-around;
     overflow-x: visible;
