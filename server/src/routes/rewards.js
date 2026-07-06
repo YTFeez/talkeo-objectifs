@@ -8,10 +8,9 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/summary', (req, res) => {
-  if (req.role === 'admin') {
-    return res.json({ ...getSummary(), wallet: getWalletSummary(), goals: listGoals() });
-  }
-  res.json(getWalletSummary());
+  const wallet = getWalletSummary();
+  const payload = { ...getSummary(), wallet, goals: listGoals() };
+  res.json(payload);
 });
 
 router.get('/', (req, res) => {

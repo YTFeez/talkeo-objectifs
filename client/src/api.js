@@ -250,3 +250,19 @@ export const ACCOUNT_LABELS = {
   total_earned: 'Total gagné',
   goals: 'Objectifs (Coffre)',
 };
+
+export const ARCHIVE_ACTION_LABELS = {
+  created: 'Créée',
+  updated: 'Modifiée',
+  submitted: 'Soumise',
+  validated: 'Validée',
+  refused: 'Refusée',
+  reopened: 'Rouverte',
+  deleted: 'Supprimée',
+  credit: 'Crédit',
+  bonus: 'Bonus',
+  penalty: 'Pénalité',
+  transfer_in: 'Entrée',
+  transfer_out: 'Sortie',
+  withdraw_request: 'Retrait demandé',
+};

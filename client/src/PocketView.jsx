@@ -1,35 +1,60 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, formatMoney, formatDate, formatPercent, ACCOUNT_LABELS } from './api';
+import { api, formatMoney, formatDate, formatPercent, ACCOUNT_LABELS, ROLE_LABELS } from './api';
 
-function AccountsOverview({ profile, economy }) {
+const CHILD_TABS = [
+  { id: 'money', label: 'Argent' },
+  { id: 'xp', label: 'XP' },
+  { id: 'savings', label: ACCOUNT_LABELS.savings },
+  { id: 'goals', label: 'Objectifs' },
+  { id: 'badges', label: 'Badges' },
+  { id: 'history', label: 'Historique' },
+];
+
+function AccountsOverview({ profile, economy, onOpenArchive }) {
+  const cards = [
+    { key: 'monthly_allocation', label: ACCOUNT_LABELS.monthly_allocation, amount: economy.monthly_base, hint: 'Budget mensuel · recompte le 1er', className: 'allocation' },
+    { key: 'current_account', label: ACCOUNT_LABELS.current_account, amount: profile.current_balance, hint: 'Disponible tout de suite' },
+    { key: 'savings', label: ACCOUNT_LABELS.savings, amount: profile.savings_balance, hint: 'Mis de côté pour plus tard', className: 'savings' },
+    { key: 'total_earned', label: ACCOUNT_LABELS.total_earned, amount: profile.total_earned, hint: 'Tâches, bonus, allocations…', className: 'total-earned' },
+    { key: 'goals', label: ACCOUNT_LABELS.goals, amount: profile.goals_reserved, hint: 'Réservé pour un achat précis', className: 'goals' },
+  ];
+
   return (
     <div className="accounts-overview">
-      <div className="account-card allocation">
-        <span className="label">{ACCOUNT_LABELS.monthly_allocation}</span>
-        <span className="amount">{formatMoney(economy.monthly_base)}</span>
-        <p className="hint">Budget mensuel · recompte le 1er</p>
-      </div>
-      <div className="account-card">
-        <span className="label">{ACCOUNT_LABELS.current_account}</span>
-        <span className="amount">{formatMoney(profile.current_balance)}</span>
-        <p className="hint">Disponible tout de suite</p>
-      </div>
-      <div className="account-card savings">
-        <span className="label">{ACCOUNT_LABELS.savings}</span>
-        <span className="amount">{formatMoney(profile.savings_balance)}</span>
-        <p className="hint">Mis de côté pour plus tard</p>
-      </div>
-      <div className="account-card total-earned">
-        <span className="label">{ACCOUNT_LABELS.total_earned}</span>
-        <span className="amount">{formatMoney(profile.total_earned)}</span>
-        <p className="hint">Tâches, bonus, allocations…</p>
-      </div>
-      <div className="account-card goals">
-        <span className="label">{ACCOUNT_LABELS.goals}</span>
-        <span className="amount">{formatMoney(profile.goals_reserved)}</span>
-        <p className="hint">Réservé pour un achat précis</p>
-      </div>
+      {cards.map((card) => (
+        <div key={card.key} className={`account-card ${card.className || ''}`}>
+          <button
+            type="button"
+            className="account-archive-btn"
+            title={`Archive ${card.label}`}
+            onClick={() => onOpenArchive?.({ section: 'account', categoryKey: card.key, label: card.label })}
+          >
+            📜
+          </button>
+          <span className="label">{card.label}</span>
+          <span className="amount">{formatMoney(card.amount)}</span>
+          <p className="hint">{card.hint}</p>
+        </div>
+      ))}
     </div>
+  );
+}
+
+function WalletHero({ profile, economy, isChild }) {
+  return (
+    <>
+      <p className="wallet-hero-label">
+        {!isChild && <span className="parent-view-tag">Vue parents · </span>}
+        {ACCOUNT_LABELS.monthly_allocation} · {formatMoney(economy.monthly_base)}
+      </p>
+      <p className="wallet-hero-amount">{formatMoney(profile.current_balance)}</p>
+      <p className="wallet-hero-meta">
+        {ACCOUNT_LABELS.current_account}
+        · {ACCOUNT_LABELS.total_earned} {formatMoney(profile.total_earned)}
+        · Niveau {profile.level}
+        · Strike {profile.current_strike}🔥
+      </p>
+    </>
   );
 }
 
@@ -66,7 +91,63 @@ function EconomyBreakdown({ economy }) {
   );
 }
 
-function XpPanel({ profile, isAdmin, onRefresh }) {
+function MoneyPanel({ economy, isMobile }) {
+  return (
+    <>
+      <EconomyBreakdown economy={economy} />
+      {economy.pending_tasks.length > 0 && (
+        <section className="wallet-section">
+          <p className="wallet-section-title">Tâches en cours (non faites = argent perdu)</p>
+          <div className={isMobile ? 'pocket-mobile-list' : 'table-wrap pocket-table'}>
+            {isMobile ? (
+              economy.pending_tasks.map((t) => (
+                <article key={t.id} className="pocket-mobile-card risk-card">
+                  <div className="pocket-mobile-main">
+                    <h4>{t.title}</h4>
+                    <p className="hint">{formatPercent(t.reward_percent)} · risque {formatMoney(t.amount_at_risk)}</p>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Tâche</th><th>%</th><th>À perdre</th></tr>
+                </thead>
+                <tbody>
+                  {economy.pending_tasks.map((t) => (
+                    <tr key={t.id}>
+                      <td>{t.title}</td>
+                      <td>{formatPercent(t.reward_percent)}</td>
+                      <td className="risk-text">-{formatMoney(t.amount_at_risk)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      )}
+      {economy.completed_tasks.length > 0 && (
+        <section className="wallet-section">
+          <p className="wallet-section-title">Tâches terminées</p>
+          <div className="pocket-mobile-list">
+            {economy.completed_tasks.map((t) => (
+              <article key={`${t.id}-${t.completed_at}`} className="pocket-mobile-card">
+                <div className="pocket-mobile-main">
+                  <h4>{t.title} {t.type === 'special' && <span className="special-tag">★</span>}</h4>
+                  <p className="hint">{t.completed_at && formatDate(t.completed_at)}</p>
+                </div>
+                <span className="pocket-mobile-gain">+{formatMoney(t.amount)}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+function XpPanel({ profile, isChild, onRefresh }) {
   const [ideaTitle, setIdeaTitle] = useState('');
   const [ideaDesc, setIdeaDesc] = useState('');
   const [requests, setRequests] = useState([]);
@@ -118,7 +199,7 @@ function XpPanel({ profile, isAdmin, onRefresh }) {
         · récompense tous les {profile.reward_level_interval} niveaux (prochain : niv. {profile.next_reward_level})
       </p>
 
-      {isAdmin && (
+      {isChild && (
         <form className="reward-idea-form" onSubmit={submitIdea}>
           <p className="hint">Proposer une idée de récompense aux parents :</p>
           <input
@@ -149,7 +230,7 @@ function XpPanel({ profile, isAdmin, onRefresh }) {
               <strong>{r.title}</strong>
               {r.description && <p className="hint">{r.description}</p>}
               <p className="hint">Niveau {r.level_at_request} · {r.status === 'pending' ? 'En attente' : r.parent_response}</p>
-              {!isAdmin && r.status === 'pending' && (
+              {!isChild && r.status === 'pending' && (
                 <div className="reward-request-actions">
                   <button type="button" className="btn btn-secondary btn-touch" onClick={() => resolve(r.id, 'accepted')}>Accepter</button>
                   <button type="button" className="btn btn-secondary btn-touch danger" onClick={() => resolve(r.id, 'rejected')}>Refuser</button>
@@ -163,7 +244,7 @@ function XpPanel({ profile, isAdmin, onRefresh }) {
   );
 }
 
-function SavingsPanel({ profile, isAdmin, onRefresh }) {
+function SavingsPanel({ profile, isChild, onRefresh }) {
   const [rate, setRate] = useState(profile.savings_rate_percent);
   const [amount, setAmount] = useState('');
   const [withdraw, setWithdraw] = useState('');
@@ -206,7 +287,7 @@ function SavingsPanel({ profile, isAdmin, onRefresh }) {
         </div>
       </div>
 
-      {isAdmin && (
+      {isChild ? (
         <>
           <form className="wallet-action-form" onSubmit={saveRate}>
             <label className="field-label">
@@ -230,12 +311,14 @@ function SavingsPanel({ profile, isAdmin, onRefresh }) {
             <button type="submit" className="btn btn-primary btn-touch">Demander le retrait</button>
           </form>
         </>
+      ) : (
+        <p className="hint">Lecture seule — seul {ROLE_LABELS.admin} peut transférer ou demander un retrait.</p>
       )}
     </section>
   );
 }
 
-function GoalsPanel({ goals, isAdmin, onRefresh }) {
+function GoalsPanel({ goals, isChild, onRefresh }) {
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [fundAmount, setFundAmount] = useState({});
@@ -259,7 +342,7 @@ function GoalsPanel({ goals, isAdmin, onRefresh }) {
   return (
     <section className="wallet-section">
       <h3 className="wallet-section-title">{ACCOUNT_LABELS.goals}</h3>
-      {isAdmin && (
+      {isChild && (
         <form className="wallet-action-form" onSubmit={createGoal}>
           <input className="input-touch" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : Réplique airsoft" required />
           <input className="input-touch" type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Montant cible €" required />
@@ -267,7 +350,7 @@ function GoalsPanel({ goals, isAdmin, onRefresh }) {
         </form>
       )}
       {goals.length === 0 ? (
-        <p className="hint">Aucun objectif pour l&apos;instant — réserve de l&apos;argent pour un achat précis.</p>
+        <p className="hint">Aucun objectif pour l&apos;instant.</p>
       ) : (
         <div className="goals-list">
           {goals.map((g) => {
@@ -281,7 +364,7 @@ function GoalsPanel({ goals, isAdmin, onRefresh }) {
                 <div className="xp-bar-wrap goal-bar">
                   <div className="xp-bar" style={{ width: `${pct}%` }} />
                 </div>
-                {isAdmin && g.status === 'active' && (
+                {isChild && g.status === 'active' && (
                   <div className="goal-fund-row">
                     <input
                       type="number"
@@ -388,7 +471,7 @@ function ParentTools({ onRefresh }) {
 
   return (
     <section className="wallet-section">
-      <h3 className="wallet-section-title">Bonus & pénalités</h3>
+      <h3 className="wallet-section-title">Bonus & pénalités (parents)</h3>
       <form className="wallet-action-form" onSubmit={giveBonus}>
         <p className="hint">Attribuer un bonus manuel</p>
         <input className="input-touch" type="number" min="0" step="0.5" value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} placeholder="Montant €" required />
@@ -406,19 +489,19 @@ function ParentTools({ onRefresh }) {
   );
 }
 
-export default function PocketView({ isMobile, isAdmin }) {
+/** isAdmin = Aronne (enfant). Les parents voient la même chose en lecture + onglet outils. */
+export default function PocketView({ isMobile, isAdmin: isChild, onOpenArchive }) {
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState(isAdmin ? 'money' : 'xp');
+  const [tab, setTab] = useState('money');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
-    const url = isAdmin ? '/rewards/summary' : '/wallet/summary';
-    api(url)
+    api('/rewards/summary')
       .then((d) => setData(d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -440,122 +523,39 @@ export default function PocketView({ isMobile, isAdmin }) {
     return <p className="state-msg">Données indisponibles.</p>;
   }
 
-  const tabs = isAdmin
-    ? [
-        { id: 'money', label: 'Argent' },
-        { id: 'xp', label: 'XP' },
-        { id: 'savings', label: ACCOUNT_LABELS.savings },
-        { id: 'goals', label: 'Objectifs' },
-        { id: 'badges', label: 'Badges' },
-        { id: 'history', label: 'Historique' },
-      ]
-    : [
-        { id: 'xp', label: 'Récompenses' },
-        { id: 'tools', label: 'Bonus' },
-      ];
+  const tabs = isChild
+    ? CHILD_TABS
+    : [...CHILD_TABS, { id: 'tools', label: 'Bonus & pénalités' }];
 
   return (
     <div className="wallet-view">
       <div className="wallet-hero">
-        {isAdmin ? (
-          <>
-            <p className="wallet-hero-label">{ACCOUNT_LABELS.monthly_allocation} · {formatMoney(economy.monthly_base)}</p>
-            <p className="wallet-hero-amount">{formatMoney(profile.current_balance)}</p>
-            <p className="wallet-hero-meta">
-              {ACCOUNT_LABELS.current_account} · {ACCOUNT_LABELS.total_earned} {formatMoney(profile.total_earned)}
-              · Strike {profile.current_strike}🔥
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="wallet-hero-label">Progression d&apos;Aronne</p>
-            <p className="wallet-hero-amount">Niveau {profile.level}</p>
-            <p className="wallet-hero-meta">
-              {profile.xp_progress.current} / {profile.xp_progress.max} XP
-              · strike {profile.current_strike}🔥
-            </p>
-          </>
-        )}
+        <WalletHero profile={profile} economy={economy} isChild={isChild} />
       </div>
 
-      {isAdmin && <AccountsOverview profile={profile} economy={economy} />}
+      <AccountsOverview profile={profile} economy={economy} onOpenArchive={onOpenArchive} />
 
-      {tabs.length > 1 && (
-        <div className="wallet-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              className={`wallet-tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="wallet-tabs" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            className={`wallet-tab ${tab === t.id ? 'active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {isAdmin && tab === 'money' && (
-        <>
-          <EconomyBreakdown economy={economy} />
-          {economy.pending_tasks.length > 0 && (
-            <section className="wallet-section">
-              <p className="wallet-section-title">Tâches en cours (non faites = argent perdu)</p>
-              <div className={isMobile ? 'pocket-mobile-list' : 'table-wrap pocket-table'}>
-                {isMobile ? (
-                  economy.pending_tasks.map((t) => (
-                    <article key={t.id} className="pocket-mobile-card risk-card">
-                      <div className="pocket-mobile-main">
-                        <h4>{t.title}</h4>
-                        <p className="hint">{formatPercent(t.reward_percent)} · risque {formatMoney(t.amount_at_risk)}</p>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <table>
-                    <thead>
-                      <tr><th>Tâche</th><th>%</th><th>À perdre</th></tr>
-                    </thead>
-                    <tbody>
-                      {economy.pending_tasks.map((t) => (
-                        <tr key={t.id}>
-                          <td>{t.title}</td>
-                          <td>{formatPercent(t.reward_percent)}</td>
-                          <td className="risk-text">-{formatMoney(t.amount_at_risk)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </section>
-          )}
-          {economy.completed_tasks.length > 0 && (
-            <section className="wallet-section">
-              <p className="wallet-section-title">Tâches terminées</p>
-              <div className="pocket-mobile-list">
-                {economy.completed_tasks.map((t) => (
-                  <article key={`${t.id}-${t.completed_at}`} className="pocket-mobile-card">
-                    <div className="pocket-mobile-main">
-                      <h4>{t.title} {t.type === 'special' && <span className="special-tag">★</span>}</h4>
-                      <p className="hint">{t.completed_at && formatDate(t.completed_at)}</p>
-                    </div>
-                    <span className="pocket-mobile-gain">+{formatMoney(t.amount)}</span>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-        </>
-      )}
-
-      {tab === 'xp' && <XpPanel profile={profile} isAdmin={isAdmin} onRefresh={load} />}
-      {isAdmin && tab === 'savings' && <SavingsPanel profile={profile} isAdmin={isAdmin} onRefresh={load} />}
-      {tab === 'goals' && isAdmin && <GoalsPanel goals={goals} isAdmin={isAdmin} onRefresh={load} />}
-      {tab === 'badges' && isAdmin && <BadgesPanel />}
-      {tab === 'history' && isAdmin && <HistoryPanel />}
-      {!isAdmin && tab === 'tools' && <ParentTools onRefresh={load} />}
+      {tab === 'money' && <MoneyPanel economy={economy} isMobile={isMobile} />}
+      {tab === 'xp' && <XpPanel profile={profile} isChild={isChild} onRefresh={load} />}
+      {tab === 'savings' && <SavingsPanel profile={profile} isChild={isChild} onRefresh={load} />}
+      {tab === 'goals' && <GoalsPanel goals={goals} isChild={isChild} onRefresh={load} />}
+      {tab === 'badges' && <BadgesPanel />}
+      {tab === 'history' && <HistoryPanel />}
+      {!isChild && tab === 'tools' && <ParentTools onRefresh={load} />}
     </div>
   );
 }

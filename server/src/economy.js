@@ -1,4 +1,5 @@
 import db from './db.js';
+import { logAccountArchive } from './archive.js';
 
 export const MONTHLY_BASE = 40;
 export const TIMEZONE = 'Europe/Paris';
@@ -181,6 +182,14 @@ function creditEarnings(amount, note, type = 'task_reward') {
   db.prepare(`
     INSERT INTO wallet_transactions (type, amount, note) VALUES (?, ?, ?)
   `).run(type, amount, note);
+
+  if (toCurrent > 0) {
+    logAccountArchive('current_account', type === 'bonus' ? 'bonus' : 'credit', note, toCurrent);
+  }
+  if (toSavings > 0) {
+    logAccountArchive('savings', 'credit', note, toSavings);
+  }
+  logAccountArchive('total_earned', type === 'bonus' ? 'bonus' : 'credit', note, amount);
 }
 
 export function onTodoCompleted(todo) {
@@ -330,6 +339,8 @@ export function transferToSavings(amount) {
   db.prepare(`
     INSERT INTO wallet_transactions (type, amount, note) VALUES ('to_savings', ?, 'Transfert vers épargne')
   `).run(amt);
+  logAccountArchive('current_account', 'transfer_out', 'Transfert vers épargne', -amt);
+  logAccountArchive('savings', 'transfer_in', 'Transfert vers épargne', amt);
   return getChildProfile();
 }
 
@@ -342,6 +353,7 @@ export function requestWithdrawal(amount) {
   db.prepare(`
     INSERT INTO wallet_transactions (type, amount, note, status) VALUES ('withdrawal_request', ?, 'Demande de retrait', 'pending')
   `).run(amt);
+  logAccountArchive('current_account', 'withdraw_request', 'Demande de retrait', -amt);
   return { amount: amt, status: 'pending' };
 }
 
@@ -362,6 +374,8 @@ export function applyMonthlySavings() {
   db.prepare(`
     INSERT INTO wallet_transactions (type, amount, note) VALUES ('monthly_credit', ?, 'Crédit mensuel')
   `).run(earned);
+  logAccountArchive('monthly_allocation', 'credit', 'Allocation mensuelle', earned);
+  logAccountArchive('total_earned', 'credit', 'Allocation mensuelle', earned);
 
   return getChildProfile();
 }
@@ -389,6 +403,7 @@ export function applyPenalty({ amount = 0, xp = 0, note = 'Pénalité' }) {
   if (amt > 0) {
     db.prepare('UPDATE child_profile SET current_balance = current_balance - ? WHERE id = 1').run(amt);
     db.prepare(`INSERT INTO wallet_transactions (type, amount, note) VALUES ('penalty', ?, ?)`).run(-amt, note);
+    logAccountArchive('current_account', 'penalty', note, -amt);
   }
   if (xpLoss > 0) {
     const newXp = profile.xp - xpLoss;
@@ -427,6 +442,8 @@ export function transferToGoal(goalId, amount) {
   `).run(newSaved, completed ? 'completed' : 'active', completed ? 1 : 0, goalId);
 
   db.prepare(`INSERT INTO wallet_transactions (type, amount, note) VALUES ('to_goal', ?, ?)`).run(amt, `Objectif : ${goal.title}`);
+  logAccountArchive('current_account', 'transfer_out', `Objectif : ${goal.title}`, -amt);
+  logAccountArchive('goals', 'transfer_in', `Objectif : ${goal.title}`, amt);
   return db.prepare('SELECT * FROM savings_goals WHERE id = ?').get(goalId);
 }
 

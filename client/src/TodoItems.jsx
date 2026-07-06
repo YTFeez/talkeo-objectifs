@@ -11,6 +11,7 @@ import {
   TASK_CATEGORIES,
   TASK_STATUS_LABELS,
 } from './api';
+import { CategoryArchiveChip } from './CategoryArchive';
 
 function Badge({ type, value }) {
   return (
@@ -230,7 +231,7 @@ function TodoActions({ todo, onDelete, onEditStart, layout }) {
   return <div className="todo-mobile-actions">{content}</div>;
 }
 
-export function TodoRow({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields, colSpan }) {
+export function TodoRow({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, onOpenArchive, ObjectiveFields, colSpan }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -254,7 +255,13 @@ export function TodoRow({ todo, isAdmin, onSubmit, onValidate, onReject, onReope
       <td className="col-title">
         <span className="todo-title">{todo.title}</span>
         <StatusBadge status={todo.status} />
-        {todo.category && <span className="category-chip">{TASK_CATEGORIES[todo.category] || todo.category}</span>}
+        {todo.category && (
+          <CategoryArchiveChip
+            category={todo.category}
+            label={TASK_CATEGORIES[todo.category] || todo.category}
+            onOpenArchive={onOpenArchive}
+          />
+        )}
         {todo.description && <p className="todo-desc">{todo.description}</p>}
         <TodoTaskActions
           todo={todo}
@@ -300,7 +307,7 @@ export function TodoRow({ todo, isAdmin, onSubmit, onValidate, onReject, onReope
   );
 }
 
-export function TodoMobileCard({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileCard({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, onOpenArchive, ObjectiveFields }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -330,7 +337,13 @@ export function TodoMobileCard({ todo, isAdmin, onSubmit, onValidate, onReject, 
         <RewardBadge todo={todo} />
         <Badge type="priority" value={todo.priority || 'normal'} />
         <Badge type="duration" value={todo.duration || 'normal'} />
-        {todo.category && <span className="category-chip">{TASK_CATEGORIES[todo.category]}</span>}
+        {todo.category && (
+          <CategoryArchiveChip
+            category={todo.category}
+            label={TASK_CATEGORIES[todo.category]}
+            onOpenArchive={onOpenArchive}
+          />
+        )}
         {todo.due_at && (
           <span className={`due-chip ${isOverdue(todo.due_at) && isActiveTodo(todo) ? 'due-overdue' : ''}`}>
             {formatDue(todo.due_at)}
@@ -362,7 +375,7 @@ export function TodoMobileCard({ todo, isAdmin, onSubmit, onValidate, onReject, 
   );
 }
 
-export function TodoTable({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
+export function TodoTable({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, onOpenArchive, ObjectiveFields }) {
   const colSpan = 7;
   return (
     <div className="table-wrap todo-table desktop-only">
@@ -390,6 +403,7 @@ export function TodoTable({ todos, isAdmin, onSubmit, onValidate, onReject, onRe
               onReopen={onReopen}
               onDelete={onDelete}
               onEdit={onEdit}
+              onOpenArchive={onOpenArchive}
               ObjectiveFields={ObjectiveFields}
               colSpan={colSpan}
             />
@@ -400,7 +414,7 @@ export function TodoTable({ todos, isAdmin, onSubmit, onValidate, onReject, onRe
   );
 }
 
-export function TodoMobileList({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileList({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, onOpenArchive, ObjectiveFields }) {
   return (
     <div className="todo-mobile-list mobile-only">
       {todos.map((todo) => (
@@ -414,6 +428,7 @@ export function TodoMobileList({ todos, isAdmin, onSubmit, onValidate, onReject,
           onReopen={onReopen}
           onDelete={onDelete}
           onEdit={onEdit}
+          onOpenArchive={onOpenArchive}
           ObjectiveFields={ObjectiveFields}
         />
       ))}

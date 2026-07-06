@@ -7,6 +7,7 @@ import { parseFixedBonus, applyPercentDistribution, onTodoCompleted, onTodoReope
 import { seedDemoTodos } from '../seedTodos.js';
 import { createNotification } from '../notifications.js';
 import { checkAchievements } from '../achievements.js';
+import { logTaskArchive } from '../archive.js';
 
 const router = Router();
 
@@ -147,6 +148,7 @@ function validateTodo(todo) {
   const economyResult = onTodoCompleted(updated);
   const achievements = checkAchievements();
   logTodoAction(updated, 'completed');
+  logTaskArchive(updated, 'validated');
   createNotification({
     type: 'task_validated',
     title: 'Tâche validée ✓',
@@ -241,6 +243,7 @@ router.post('/', checkRole('parent'), (req, res) => {
 
   const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
   logTodoAction(todo, 'created');
+  logTaskArchive(todo, 'created');
   createNotification({
     type: 'task_created',
     title: 'Nouvelle tâche',
@@ -276,6 +279,7 @@ router.patch('/:id', (req, res) => {
     `).run(todo.id);
     const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
     logTodoAction(updated, 'updated');
+    logTaskArchive(updated, 'submitted');
     createNotification({
       type: 'task_submitted',
       title: 'Tâche à valider',
@@ -303,6 +307,7 @@ router.patch('/:id', (req, res) => {
     `).run(reason, todo.id);
     const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
     logTodoAction(updated, 'updated');
+    logTaskArchive(updated, 'refused', reason);
     createNotification({
       type: 'task_refused',
       title: 'Tâche refusée',
@@ -317,6 +322,7 @@ router.patch('/:id', (req, res) => {
     db.prepare("UPDATE todos SET status = 'pending', refused_reason = '' WHERE id = ?").run(todo.id);
     const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
     logTodoAction(updated, 'updated');
+    logTaskArchive(updated, 'reopened');
     applyPercentDistribution();
     return res.json({ todo: enrichTodo(updated, req.role) });
   }
@@ -347,6 +353,7 @@ router.patch('/:id', (req, res) => {
     updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
   }
   logTodoAction(updated, 'updated');
+  logTaskArchive(updated, 'updated');
   res.json({ todo: enrichTodo(updated, req.role) });
 });
 
@@ -361,6 +368,7 @@ router.delete('/:id', (req, res) => {
     return res.status(403).json({ error: 'Vous ne pouvez pas supprimer cet objectif' });
   }
 
+  logTaskArchive(todo, 'deleted');
   db.prepare('DELETE FROM todos WHERE id = ?').run(req.params.id);
   if ((todo.task_type || 'normal') === 'normal' && ACTIVE_STATUSES.includes(todo.status)) {
     applyPercentDistribution();

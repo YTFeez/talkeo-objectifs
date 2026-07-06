@@ -248,4 +248,23 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(target_role, read);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS persistent_archive (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section TEXT NOT NULL CHECK(section IN ('task', 'account')),
+    category_key TEXT NOT NULL,
+    action TEXT NOT NULL,
+    title TEXT NOT NULL,
+    amount REAL,
+    snapshot TEXT NOT NULL DEFAULT '{}',
+    note TEXT DEFAULT '',
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_persistent_archive_cat
+  ON persistent_archive(section, category_key, recorded_at DESC);
+`);
+
 export default db;

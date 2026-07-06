@@ -8,14 +8,14 @@ import authRoutes from './routes/auth.js';
 import todoRoutes from './routes/todos.js';
 import eventRoutes from './routes/events.js';
 import rewardRoutes from './routes/rewards.js';
-import suggestionRoutes from './routes/suggestions.js';
 import walletRoutes from './routes/wallet.js';
 import rewardRequestRoutes from './routes/rewardRequests.js';
 import goalRoutes from './routes/goals.js';
 import notificationRoutes from './routes/notifications.js';
 import achievementRoutes from './routes/achievements.js';
+import archiveRoutes from './routes/archive.js';
 import './seedTodos.js';
-import './seedSuggestions.js';
+import './archive.js';
 import { applyPercentDistribution } from './economy.js';
 
 applyPercentDistribution();
@@ -36,12 +36,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/todos', todoRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/rewards', rewardRoutes);
-app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/reward-requests', rewardRequestRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/achievements', achievementRoutes);
+app.use('/api/archive', archiveRoutes);
 
 function resolveClientDist() {
   const candidates = [

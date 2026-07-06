@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   api,
   clearAuth,
-  formatDay,
   formatDue,
   formatMoney,
   formatPercent,
@@ -21,7 +20,7 @@ import { TodoTable, TodoMobileList } from './TodoItems';
 import { EventTable, EventMobileList, EventFields } from './EventItems';
 import PocketView from './PocketView';
 import NotificationBell from './NotificationBell';
-import TaskQuickSuggestions from './TaskQuickSuggestions';
+import { CategoryArchiveOverlay, CategoryArchiveHub } from './CategoryArchive';
 import { useIsMobile } from './useMediaQuery';
 import { useToast } from './useToast.jsx';
 import { fromEventParts } from './api';
@@ -177,13 +176,6 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
   return (
     <section className={`add-form-section ${isMobile ? 'add-form-mobile' : ''} ${compact ? 'add-form-compact' : ''}`}>
       {!compact && !embedded && <h3>Nouvel objectif</h3>}
-      <TaskQuickSuggestions
-        defaultAuthor={fields.author}
-        onAdded={onAdded}
-        onSuccess={onSuccess}
-        compact={compact}
-        canManage
-      />
       <form className="add-form" onSubmit={handleSubmit}>
         <input
           ref={inputRef}
@@ -217,9 +209,6 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
         </div>
         {error && <p className="form-error">{error}</p>}
       </form>
-      {!compact && (
-        <p className="hint task-suggestions-hint">Ou personnalisez avec le formulaire ci-dessous.</p>
-      )}
     </section>
   );
 }
@@ -304,80 +293,6 @@ function AddEventForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact }) 
   );
 }
 
-function HistoryDay({ day }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="history-day">
-      <button type="button" className="history-day-header" onClick={() => setOpen(!open)}>
-        <span className="history-date">{formatDay(day.date)}</span>
-        <span className="history-stats">
-          +{day.added_count} ajouté{day.added_count !== 1 ? 's' : ''}
-          {day.completed_count > 0 && ` · ${day.completed_count} terminé${day.completed_count !== 1 ? 's' : ''}`}
-        </span>
-        <span className="history-chevron" aria-hidden>{open ? '▼' : '▶'}</span>
-      </button>
-      {open && (
-        <div className="history-body">
-          {day.added.length > 0 && (
-            <div className="history-block">
-              <h4>Ajoutés ce jour</h4>
-              <ul>
-                {day.added.map((t) => (
-                  <li key={`a-${t.id}`}>
-                    <strong>{t.title}</strong>
-                    <span className="history-item-meta">
-                      {t.author}
-                      {t.due_at && ` · ${formatDue(t.due_at)}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {day.completed.length > 0 && (
-            <div className="history-block">
-              <h4>Terminés ce jour</h4>
-              <ul>
-                {day.completed.map((t) => (
-                  <li key={`c-${t.id}`}>
-                    <strong>{t.title}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {day.added.length === 0 && day.completed.length === 0 && (
-            <p className="history-empty">Aucune activité enregistrée.</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HistoryView() {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api('/todos/history?days=30')
-      .then(({ history: h }) => setHistory(h))
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <p className="state-msg">Chargement de l&apos;historique…</p>;
-  if (history.length === 0) return <p className="state-msg">Aucun historique pour le moment.</p>;
-
-  return (
-    <div className="history-list">
-      {history.map((day) => (
-        <HistoryDay key={day.date} day={day} />
-      ))}
-    </div>
-  );
-}
-
 function SegmentControl({ segments, value, onChange }) {
   return (
     <div className="segment-control" role="tablist">
@@ -417,6 +332,9 @@ export default function Dashboard({ auth, onLogout }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [addSheet, setAddSheet] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [archiveOpen, setArchiveOpen] = useState(null);
+
+  const openArchive = useCallback((payload) => setArchiveOpen(payload), []);
 
   const isAdmin = auth.role === 'admin';
   const defaultAuthor = getStoredAuth().author;
@@ -438,12 +356,8 @@ export default function Dashboard({ auth, onLogout }) {
       setEventsCount(upcoming.length);
       setHomeEvents(upcoming);
 
-      if (isAdmin) {
-        const summary = await api('/rewards/summary');
-        setPocketTotal(summary.current?.total ?? summary.wallet?.economy?.projected_total ?? 0);
-      } else {
-        setPocketTotal(0);
-      }
+      const summary = await api('/rewards/summary');
+      setPocketTotal(summary.current?.total ?? summary.wallet?.economy?.projected_total ?? summary.economy?.projected_total ?? 0);
 
       if (isHistory || isPocket || isHome) return;
 
@@ -654,10 +568,13 @@ export default function Dashboard({ auth, onLogout }) {
     ...(awaitingCount > 0 && !isAdmin ? [{ id: 'awaiting', label: 'À valider', count: awaitingCount, sub: 'En attente de validation' }] : []),
     { id: 'done', label: 'Terminés', sub: 'Déjà validés' },
     { id: 'events', label: 'Événements', count: eventsCount, sub: 'Agenda familial' },
-    ...(isAdmin
-      ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal), sub: 'Allocation 40 € · recompte le 1er' }]
-      : [{ id: 'pocket', label: 'Récompenses', sub: 'Idées d\'Aronne' }]),
-    { id: 'history', label: 'Historique', sub: '30 derniers jours' },
+    {
+      id: 'pocket',
+      label: isAdmin ? 'Argent de poche' : `Argent · ${ROLE_LABELS.admin}`,
+      ...(isAdmin ? { countLabel: formatMoney(pocketTotal) } : {}),
+      sub: isAdmin ? 'Allocation 40 € · recompte le 1er' : `${formatMoney(pocketTotal)} ce mois`,
+    },
+    { id: 'history', label: 'Archives', sub: 'Historique permanent par catégorie' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous', sub: 'Vue complète' }] : []),
   ];
 
@@ -667,8 +584,8 @@ export default function Dashboard({ auth, onLogout }) {
     awaiting: 'À valider',
     events: 'Événements',
     done: 'Terminés',
-    pocket: isAdmin ? 'Argent de poche' : 'Récompenses',
-    history: 'Historique',
+    pocket: isAdmin ? 'Argent de poche' : `Argent · ${ROLE_LABELS.admin}`,
+    history: 'Archives permanentes',
     all: 'Tous les objectifs',
   }[filter];
 
@@ -687,6 +604,7 @@ export default function Dashboard({ auth, onLogout }) {
     onReopen: handleReopen,
     onDelete: handleDelete,
     onEdit: handleEdit,
+    onOpenArchive: openArchive,
     ObjectiveFields: (props) => <ObjectiveFields {...props} isParent={!isAdmin} />,
   };
 
@@ -718,7 +636,7 @@ export default function Dashboard({ auth, onLogout }) {
           <div className="mobile-top-main">
             <h1>{filterTitle}</h1>
             <p className="mobile-top-meta">
-              {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : `${pendingCount} à faire · ${eventsCount} évén.`}
+              {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : `${pendingCount} à faire · ${formatMoney(pocketTotal)} Aronne`}
             </p>
           </div>
           <NotificationBell isMobile />
@@ -770,6 +688,7 @@ export default function Dashboard({ auth, onLogout }) {
         </div>
         <span className="meta">
           {pendingCount} en attente · {eventsCount} événement{eventsCount !== 1 ? 's' : ''}
+          {!isAdmin && ` · ${formatMoney(pocketTotal)} ${ROLE_LABELS.admin}`}
           {isAdmin && ` · ${formatMoney(pocketTotal)} ce mois`}
         </span>
       </header>
@@ -807,8 +726,10 @@ export default function Dashboard({ auth, onLogout }) {
                   {filtered.length} {isEventsView ? `événement${filtered.length !== 1 ? 's' : ''}` : `objectif${filtered.length !== 1 ? 's' : ''}`}
                 </span>
               )}
-              {isPocketView && !loading && isAdmin && (
-                <span className="hint">{formatMoney(pocketTotal)} ce mois</span>
+              {isPocketView && !loading && (
+                <span className="hint">
+                  {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : `Comptes ${ROLE_LABELS.admin}`}
+                </span>
               )}
             </div>
           )}
@@ -876,14 +797,11 @@ export default function Dashboard({ auth, onLogout }) {
                 onNavigate={navigate}
                 onSubmit={handleSubmit}
                 onValidate={handleValidate}
-                defaultAuthor={defaultAuthor}
-                onQuickAdded={loadData}
-                onToast={(msg, type) => toast(msg, type || 'success')}
               />
             ) : isHistoryView ? (
-              <HistoryView />
+              <CategoryArchiveHub onOpenArchive={openArchive} />
             ) : isPocketView ? (
-              <PocketView key={`${pocketTotal}-${filter}`} isMobile={isMobile} isAdmin={isAdmin} />
+              <PocketView key={`${pocketTotal}-${filter}`} isMobile={isMobile} isAdmin={isAdmin} onOpenArchive={openArchive} />
             ) : isEventsView ? (
               <>
                 {loading && <p className="state-msg">Chargement…</p>}
@@ -994,10 +912,8 @@ export default function Dashboard({ auth, onLogout }) {
                 <span className="hint">{eventsCount} à venir</span>
               </button>
               <button type="button" className="more-menu-item accent" onClick={() => navigate('pocket')}>
-                <span>{isAdmin ? 'Argent de poche' : 'Récompenses'}</span>
-                <span className="hint">
-                  {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : 'Idées d\'Aronne'}
-                </span>
+                <span>{isAdmin ? 'Argent de poche' : `Argent · ${ROLE_LABELS.admin}`}</span>
+                <span className="hint">{formatMoney(pocketTotal)} ce mois</span>
               </button>
               <button type="button" className="more-menu-item" onClick={() => navigate('history')}>
                 <span>Historique</span>
@@ -1077,6 +993,15 @@ export default function Dashboard({ auth, onLogout }) {
         onConfirm={confirm?.onConfirm}
         onCancel={() => setConfirm(null)}
       />
+
+      {archiveOpen && (
+        <CategoryArchiveOverlay
+          section={archiveOpen.section}
+          categoryKey={archiveOpen.categoryKey}
+          label={archiveOpen.label}
+          onClose={() => setArchiveOpen(null)}
+        />
+      )}
     </div>
   );
 }
