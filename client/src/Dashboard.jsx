@@ -6,6 +6,9 @@ import {
   formatDue,
   formatMoney,
   formatPercent,
+  TASK_CATEGORIES,
+  REPEAT_LABELS,
+  TASK_STATUS_LABELS,
   DURATION_HINTS,
   getStoredAuth,
   saveAuthor,
@@ -17,6 +20,7 @@ import HomeView from './HomeView';
 import { TodoTable, TodoMobileList } from './TodoItems';
 import { EventTable, EventMobileList, EventFields } from './EventItems';
 import PocketView from './PocketView';
+import NotificationBell from './NotificationBell';
 import TaskQuickSuggestions from './TaskQuickSuggestions';
 import { useIsMobile } from './useMediaQuery';
 import { useToast } from './useToast.jsx';
@@ -35,7 +39,7 @@ const TASK_SEGMENTS_BASE = [
 ];
 
 function isTaskFilter(f) {
-  return f === 'pending' || f === 'done' || f === 'all';
+  return f === 'pending' || f === 'done' || f === 'all' || f === 'awaiting';
 }
 
 function ObjectiveFields({ values, onChange, compact, isParent }) {
@@ -95,6 +99,22 @@ function ObjectiveFields({ values, onChange, compact, isParent }) {
           ) : (
             <p className="hint field-percent-hint">Le % est calculé selon durée et difficulté.</p>
           )}
+          <label className="field-inline">
+            Catégorie
+            <select value={values.category || 'maison'} onChange={(e) => onChange('category', e.target.value)}>
+              {Object.entries(TASK_CATEGORIES).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field-inline">
+            Répétition
+            <select value={values.repeat_type || 'none'} onChange={(e) => onChange('repeat_type', e.target.value)}>
+              {Object.entries(REPEAT_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </label>
         </>
       )}
     </div>
@@ -111,6 +131,8 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
     due_at: '',
     task_type: 'normal',
     fixed_bonus: '',
+    category: 'maison',
+    repeat_type: 'none',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -386,6 +408,7 @@ export default function Dashboard({ auth, onLogout }) {
   const [homePending, setHomePending] = useState([]);
   const [homeEvents, setHomeEvents] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [awaitingCount, setAwaitingCount] = useState(0);
   const [eventsCount, setEventsCount] = useState(0);
   const [pocketTotal, setPocketTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -408,6 +431,7 @@ export default function Dashboard({ auth, onLogout }) {
     try {
       const { todos: pending } = await api('/todos?status=pending');
       setPendingCount(pending.length);
+      setAwaitingCount(pending.filter((t) => t.status === 'awaiting_validation').length);
       setHomePending(pending);
 
       const { events: upcoming } = await api('/events?upcoming=1');
@@ -476,13 +500,45 @@ export default function Dashboard({ auth, onLogout }) {
     );
   }, [todos, events, search, filter]);
 
-  async function handleToggle(todo) {
+  async function handleSubmit(todo) {
+    try {
+      await api(`/todos/${todo.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'submit' }) });
+      toast('Tâche envoyée aux parents pour validation');
+      loadData();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleValidate(todo) {
+    try {
+      const res = await api(`/todos/${todo.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'validate' }) });
+      toast(res.achievements?.length ? `Validée ✓ · Badge débloqué !` : 'Tâche validée ✓');
+      loadData();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleReject(todo) {
+    const reason = window.prompt('Motif du refus (optionnel) :', 'À refaire');
+    if (reason === null) return;
     try {
       await api(`/todos/${todo.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: todo.status === 'done' ? 'pending' : 'done' }),
+        body: JSON.stringify({ action: 'reject', refused_reason: reason || 'À refaire' }),
       });
-      toast(todo.status === 'done' ? 'Objectif remis en attente' : 'Objectif validé ✓');
+      toast('Tâche refusée');
+      loadData();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleReopen(todo) {
+    try {
+      await api(`/todos/${todo.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'reopen' }) });
+      toast('Tâche remise en attente');
       loadData();
     } catch (err) {
       toast(err.message, 'error');
@@ -595,6 +651,7 @@ export default function Dashboard({ auth, onLogout }) {
   const sidebarTabs = [
     { id: 'home', label: 'Accueil', sub: 'Vue d\'ensemble' },
     { id: 'pending', label: 'En attente', count: pendingCount, sub: 'Objectifs à réaliser' },
+    ...(awaitingCount > 0 && !isAdmin ? [{ id: 'awaiting', label: 'À valider', count: awaitingCount, sub: 'En attente de validation' }] : []),
     { id: 'done', label: 'Terminés', sub: 'Déjà validés' },
     { id: 'events', label: 'Événements', count: eventsCount, sub: 'Agenda familial' },
     ...(isAdmin
@@ -607,6 +664,7 @@ export default function Dashboard({ auth, onLogout }) {
   const filterTitle = {
     home: 'Accueil',
     pending: 'À faire',
+    awaiting: 'À valider',
     events: 'Événements',
     done: 'Terminés',
     pocket: isAdmin ? 'Argent de poche' : 'Récompenses',
@@ -623,8 +681,10 @@ export default function Dashboard({ auth, onLogout }) {
   const todoListProps = {
     todos: filtered,
     isAdmin,
-    canValidate: !isAdmin,
-    onToggle: handleToggle,
+    onSubmit: handleSubmit,
+    onValidate: handleValidate,
+    onReject: handleReject,
+    onReopen: handleReopen,
     onDelete: handleDelete,
     onEdit: handleEdit,
     ObjectiveFields: (props) => <ObjectiveFields {...props} isParent={!isAdmin} />,
@@ -643,9 +703,10 @@ export default function Dashboard({ auth, onLogout }) {
         ...s,
         count: s.id === 'pending' ? pendingCount : undefined,
       })),
+      ...(!isAdmin && awaitingCount > 0 ? [{ id: 'awaiting', label: 'À valider', count: awaitingCount }] : []),
       ...(isAdmin ? [{ id: 'all', label: 'Tous' }] : []),
     ],
-    [pendingCount, isAdmin],
+    [pendingCount, awaitingCount, isAdmin],
   );
 
   const showFab = isMobile && !isAdmin && isHomeView;
@@ -660,6 +721,7 @@ export default function Dashboard({ auth, onLogout }) {
               {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : `${pendingCount} à faire · ${eventsCount} évén.`}
             </p>
           </div>
+          <NotificationBell isMobile />
           <button
             type="button"
             className="mobile-account-btn"
@@ -697,6 +759,7 @@ export default function Dashboard({ auth, onLogout }) {
           </div>
         )}
         <div className="file-bar">
+          <NotificationBell />
           <span className="user-pill">{displayName}</span>
           <button type="button" className="btn btn-secondary" onClick={() => setShowSettings(true)}>
             Mot de passe
@@ -811,8 +874,8 @@ export default function Dashboard({ auth, onLogout }) {
                 pendingTodos={homePending}
                 upcomingEvents={homeEvents}
                 onNavigate={navigate}
-                onToggle={handleToggle}
-                canValidate={!isAdmin}
+                onSubmit={handleSubmit}
+                onValidate={handleValidate}
                 defaultAuthor={defaultAuthor}
                 onQuickAdded={loadData}
                 onToast={(msg, type) => toast(msg, type || 'success')}

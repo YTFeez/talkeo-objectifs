@@ -218,3 +218,26 @@ export function formatPercent(value) {
   const n = Number(value) || 0;
   return `${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
 }
+
+export const TASK_CATEGORIES = {
+  maison: 'Maison',
+  ecole: 'École',
+  hygiene: 'Hygiène',
+  animaux: 'Animaux',
+  cuisine: 'Cuisine',
+  autre: 'Autre',
+};
+
+export const REPEAT_LABELS = {
+  none: 'Aucune',
+  daily: 'Quotidienne',
+  weekly: 'Hebdomadaire',
+  monthly: 'Mensuelle',
+};
+
+export const TASK_STATUS_LABELS = {
+  pending: 'À faire',
+  awaiting_validation: 'En attente',
+  done: 'Validée',
+  refused: 'Refusée',
+};

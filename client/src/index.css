@@ -3350,3 +3350,244 @@ button.home-stat-card:hover {
     max-width: 640px;
   }
 }
+
+/* ——— V3 : validation, badges, coffres, notifications ——— */
+
+.status-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge.status-awaiting_validation {
+  background: rgba(255, 193, 7, 0.2);
+  color: #c9a227;
+}
+
+.status-badge.status-refused {
+  background: rgba(244, 67, 54, 0.15);
+  color: #e57373;
+}
+
+.status-badge.status-done {
+  background: rgba(78, 201, 176, 0.2);
+  color: var(--success);
+}
+
+.category-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--fill-secondary);
+  color: var(--text-tertiary);
+}
+
+.todo-task-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.todo-task-actions.inline {
+  margin-top: 8px;
+}
+
+.todo-row.awaiting,
+.todo-mobile-card.awaiting {
+  border-left: 3px solid #c9a227;
+}
+
+.todo-row.refused,
+.todo-mobile-card.refused {
+  border-left: 3px solid #e57373;
+}
+
+.refused-reason,
+.awaiting-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.goal-card {
+  padding: var(--space-md);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: 12px;
+  background: var(--bg-editor);
+}
+
+.goal-card.completed {
+  border-color: rgba(78, 201, 176, 0.4);
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.goal-bar {
+  margin-bottom: var(--space-sm);
+}
+
+.goal-fund-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-sm);
+}
+
+.badge-card {
+  padding: var(--space-md);
+  border-radius: 12px;
+  border: 1px solid var(--stroke-tertiary);
+  text-align: center;
+  background: var(--bg-editor);
+}
+
+.badge-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+
+.badge-card .badge-icon {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.tx-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tx-history-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke-tertiary);
+  background: var(--bg-editor);
+}
+
+.tx-history-list .tx-plus strong {
+  color: var(--success);
+}
+
+.tx-history-list .tx-minus strong {
+  color: #e57373;
+}
+
+.notification-bell {
+  position: relative;
+}
+
+.notification-bell-btn {
+  position: relative;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e57373;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notification-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: transparent;
+  border: none;
+}
+
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  width: min(320px, 90vw);
+  max-height: 360px;
+  overflow: auto;
+  background: var(--bg-editor);
+  border: 1px solid var(--stroke-secondary);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.notification-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--stroke-tertiary);
+}
+
+.notification-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+
+.notification-list li {
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.notification-list li.unread {
+  background: var(--fill-secondary);
+}
+
+.notification-empty {
+  padding: 16px;
+  text-align: center;
+}
+
+.file-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mobile-top-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}

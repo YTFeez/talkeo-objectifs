@@ -9,15 +9,20 @@ import {
   transferToSavings,
   requestWithdrawal,
   getChildProfile,
+  applyParentBonus,
+  applyPenalty,
+  getTransactionHistory,
+  listGoals,
 } from '../economy.js';
-import db from '../db.js';
+import { checkAchievements } from '../achievements.js';
+import { createNotification } from '../notifications.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 
 router.get('/summary', (req, res) => {
-  res.json(getWalletSummary());
+  res.json({ ...getWalletSummary(), goals: listGoals() });
 });
 
 router.get('/month', (req, res) => {
@@ -73,10 +78,45 @@ router.post('/withdraw', (req, res) => {
 });
 
 router.get('/transactions', (req, res) => {
-  const txs = db.prepare(`
-    SELECT * FROM wallet_transactions ORDER BY created_at DESC LIMIT 50
-  `).all();
-  res.json({ transactions: txs });
+  const limit = Math.min(100, Number(req.query.limit) || 50);
+  res.json({ transactions: getTransactionHistory(limit) });
+});
+
+router.post('/bonus', (req, res) => {
+  if (req.role !== 'parent') return res.status(403).json({ error: 'Réservé aux parents' });
+  try {
+    const profile = applyParentBonus({ amount: req.body.amount, note: req.body.note || 'Bonus' });
+    const achievements = checkAchievements();
+    createNotification({
+      type: 'bonus',
+      title: 'Bonus reçu !',
+      body: req.body.note || `+${req.body.amount} €`,
+      target_role: 'admin',
+    });
+    res.json({ profile, achievements });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/penalty', (req, res) => {
+  if (req.role !== 'parent') return res.status(403).json({ error: 'Réservé aux parents' });
+  try {
+    const profile = applyPenalty({
+      amount: Number(req.body.amount) || 0,
+      xp: Number(req.body.xp) || 0,
+      note: req.body.note || 'Pénalité',
+    });
+    createNotification({
+      type: 'penalty',
+      title: 'Pénalité',
+      body: req.body.note || 'Retrait appliqué',
+      target_role: 'admin',
+    });
+    res.json({ profile });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 export default router;

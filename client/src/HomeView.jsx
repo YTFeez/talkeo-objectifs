@@ -44,8 +44,8 @@ export default function HomeView({
   pendingTodos,
   upcomingEvents,
   onNavigate,
-  onToggle,
-  canValidate,
+  onSubmit,
+  onValidate,
   defaultAuthor,
   onQuickAdded,
   onToast,
@@ -144,16 +144,25 @@ export default function HomeView({
                 badge={taskBadge(todo)}
                 onClick={() => onNavigate('pending')}
                 action={
-                  canValidate && (
+                  isAdmin && todo.can_submit !== false && ['pending', 'refused'].includes(todo.status) ? (
                     <button
                       type="button"
                       className="home-validate-btn"
-                      onClick={() => onToggle(todo)}
+                      onClick={(e) => { e.stopPropagation(); onSubmit?.(todo); }}
+                      aria-label={`Terminer : ${todo.title}`}
+                    >
+                      ✓
+                    </button>
+                  ) : !isAdmin && todo.status === 'awaiting_validation' ? (
+                    <button
+                      type="button"
+                      className="home-validate-btn"
+                      onClick={(e) => { e.stopPropagation(); onValidate?.(todo); }}
                       aria-label={`Valider : ${todo.title}`}
                     >
                       ✓
                     </button>
-                  )
+                  ) : null
                 }
               />
             ))}

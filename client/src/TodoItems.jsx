@@ -8,6 +8,8 @@ import {
   toDatetimeLocal,
   PRIORITY_LABELS,
   DURATION_LABELS,
+  TASK_CATEGORIES,
+  TASK_STATUS_LABELS,
 } from './api';
 
 function Badge({ type, value }) {
@@ -16,6 +18,11 @@ function Badge({ type, value }) {
       {type === 'priority' ? PRIORITY_LABELS[value] : DURATION_LABELS[value]}
     </span>
   );
+}
+
+function StatusBadge({ status }) {
+  if (!status || status === 'pending') return null;
+  return <span className={`status-badge status-${status}`}>{TASK_STATUS_LABELS[status] || status}</span>;
 }
 
 export function TodoEditForm({ title, setTitle, description, setDescription, fields, onFieldChange, error, saving, onCancel, onSubmit, ObjectiveFields }) {
@@ -84,6 +91,8 @@ function useTodoEditor(todo, onEdit) {
     due_at: toDatetimeLocal(todo.due_at),
     task_type: todo.task_type || 'normal',
     fixed_bonus: todo.fixed_bonus || 0,
+    category: todo.category || 'maison',
+    repeat_type: todo.repeat_type || 'none',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -122,11 +131,17 @@ function useTodoEditor(todo, onEdit) {
   };
 }
 
+function isActiveTodo(todo) {
+  return ['pending', 'awaiting_validation', 'refused'].includes(todo.status);
+}
+
 function todoRowClass(todo) {
   return [
     'todo-row',
     `priority-${todo.priority || 'normal'}`,
     todo.status === 'done' ? 'done' : '',
+    todo.status === 'refused' ? 'refused' : '',
+    todo.status === 'awaiting_validation' ? 'awaiting' : '',
     isOverdue(todo.due_at) && todo.status === 'pending' ? 'overdue' : '',
   ].filter(Boolean).join(' ');
 }
@@ -136,8 +151,51 @@ function todoCardClass(todo) {
     'todo-mobile-card',
     `priority-${todo.priority || 'normal'}`,
     todo.status === 'done' ? 'done' : '',
+    todo.status === 'refused' ? 'refused' : '',
+    todo.status === 'awaiting_validation' ? 'awaiting' : '',
     isOverdue(todo.due_at) && todo.status === 'pending' ? 'overdue' : '',
   ].filter(Boolean).join(' ');
+}
+
+function TodoTaskActions({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, layout }) {
+  const wrapClass = layout === 'mobile' ? 'todo-task-actions' : 'todo-task-actions inline';
+
+  if (isAdmin && todo.can_submit) {
+    return (
+      <div className={wrapClass}>
+        <button type="button" className="btn btn-primary btn-touch" onClick={() => onSubmit(todo)}>
+          J&apos;ai terminé ✓
+        </button>
+      </div>
+    );
+  }
+
+  if (!isAdmin && todo.status === 'awaiting_validation') {
+    return (
+      <div className={wrapClass}>
+        <button type="button" className="btn btn-primary btn-touch" onClick={() => onValidate(todo)}>Valider</button>
+        <button type="button" className="btn btn-secondary btn-touch danger" onClick={() => onReject(todo)}>Refuser</button>
+      </div>
+    );
+  }
+
+  if (!isAdmin && todo.status === 'done') {
+    return (
+      <div className={wrapClass}>
+        <button type="button" className="btn btn-secondary btn-touch" onClick={() => onReopen(todo)}>Rouvrir</button>
+      </div>
+    );
+  }
+
+  if (todo.status === 'refused' && todo.refused_reason) {
+    return <p className="hint refused-reason">Refus : {todo.refused_reason}</p>;
+  }
+
+  if (todo.status === 'awaiting_validation' && isAdmin) {
+    return <p className="hint awaiting-hint">En attente de validation des parents</p>;
+  }
+
+  return null;
 }
 
 function TodoActions({ todo, onDelete, onEditStart, layout }) {
@@ -172,7 +230,7 @@ function TodoActions({ todo, onDelete, onEditStart, layout }) {
   return <div className="todo-mobile-actions">{content}</div>;
 }
 
-export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields, colSpan }) {
+export function TodoRow({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields, colSpan }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -193,19 +251,20 @@ export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit
 
   return (
     <tr className={todoRowClass(todo)}>
-      {canValidate && (
-        <td className="col-check">
-          <button
-            type="button"
-            className={`check-btn ${todo.status === 'done' ? 'checked' : ''}`}
-            onClick={() => onToggle(todo)}
-            aria-label={todo.status === 'done' ? 'Remettre en attente' : 'Terminer'}
-          />
-        </td>
-      )}
       <td className="col-title">
         <span className="todo-title">{todo.title}</span>
+        <StatusBadge status={todo.status} />
+        {todo.category && <span className="category-chip">{TASK_CATEGORIES[todo.category] || todo.category}</span>}
         {todo.description && <p className="todo-desc">{todo.description}</p>}
+        <TodoTaskActions
+          todo={todo}
+          isAdmin={isAdmin}
+          onSubmit={onSubmit}
+          onValidate={onValidate}
+          onReject={onReject}
+          onReopen={onReopen}
+          layout="inline"
+        />
       </td>
       <td className="col-reward">
         {hasRewardDisplay(todo) ? <RewardBadge todo={todo} /> : <span className="hint">—</span>}
@@ -218,7 +277,7 @@ export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit
       </td>
       <td className="col-due">
         {todo.due_at ? (
-          <span className={isOverdue(todo.due_at) && todo.status === 'pending' ? 'due-overdue' : 'due-text'}>
+          <span className={isOverdue(todo.due_at) && isActiveTodo(todo) ? 'due-overdue' : 'due-text'}>
             {formatDue(todo.due_at)}
           </span>
         ) : (
@@ -236,17 +295,12 @@ export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit
           </>
         )}
       </td>
-      <TodoActions
-        todo={todo}
-        onDelete={onDelete}
-        onEditStart={() => editor.setEditing(true)}
-        layout="desktop"
-      />
+      <TodoActions todo={todo} onDelete={onDelete} onEditStart={() => editor.setEditing(true)} layout="desktop" />
     </tr>
   );
 }
 
-export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileCard({ todo, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
   const editor = useTodoEditor(todo, onEdit);
 
   if (editor.editing) {
@@ -266,16 +320,9 @@ export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete,
   return (
     <article className={todoCardClass(todo)}>
       <div className="todo-mobile-header">
-        {canValidate && (
-          <button
-            type="button"
-            className={`check-btn check-btn-lg ${todo.status === 'done' ? 'checked' : ''}`}
-            onClick={() => onToggle(todo)}
-            aria-label={todo.status === 'done' ? 'Remettre en attente' : 'Terminer'}
-          />
-        )}
         <div className="todo-mobile-main">
           <h3 className="todo-title">{todo.title}</h3>
+          <StatusBadge status={todo.status} />
           {todo.description && <p className="todo-desc">{todo.description}</p>}
         </div>
       </div>
@@ -283,17 +330,22 @@ export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete,
         <RewardBadge todo={todo} />
         <Badge type="priority" value={todo.priority || 'normal'} />
         <Badge type="duration" value={todo.duration || 'normal'} />
+        {todo.category && <span className="category-chip">{TASK_CATEGORIES[todo.category]}</span>}
         {todo.due_at && (
-          <span className={`due-chip ${isOverdue(todo.due_at) && todo.status === 'pending' ? 'due-overdue' : ''}`}>
+          <span className={`due-chip ${isOverdue(todo.due_at) && isActiveTodo(todo) ? 'due-overdue' : ''}`}>
             {formatDue(todo.due_at)}
           </span>
         )}
       </div>
-      {canValidate && todo.status === 'pending' && (
-        <button type="button" className="todo-validate-cta" onClick={() => onToggle(todo)}>
-          ✓ Marquer comme fait
-        </button>
-      )}
+      <TodoTaskActions
+        todo={todo}
+        isAdmin={isAdmin}
+        onSubmit={onSubmit}
+        onValidate={onValidate}
+        onReject={onReject}
+        onReopen={onReopen}
+        layout="mobile"
+      />
       <p className="todo-mobile-meta">
         <span>{todo.author}</span>
         <span className="meta-sep">·</span>
@@ -305,24 +357,18 @@ export function TodoMobileCard({ todo, isAdmin, canValidate, onToggle, onDelete,
           </>
         )}
       </p>
-      <TodoActions
-        todo={todo}
-        onDelete={onDelete}
-        onEditStart={() => editor.setEditing(true)}
-        layout="mobile"
-      />
+      <TodoActions todo={todo} onDelete={onDelete} onEditStart={() => editor.setEditing(true)} layout="mobile" />
     </article>
   );
 }
 
-export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
-  const colSpan = canValidate ? 8 : 7;
+export function TodoTable({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
+  const colSpan = 7;
   return (
     <div className="table-wrap todo-table desktop-only">
       <table>
         <thead>
           <tr>
-            {canValidate && <th className="col-check" aria-label="Terminer" />}
             <th>Objectif</th>
             <th className="col-reward">% / Bonus</th>
             <th className="col-priority">Priorité</th>
@@ -338,8 +384,10 @@ export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onE
               key={todo.id}
               todo={todo}
               isAdmin={isAdmin}
-              canValidate={canValidate}
-              onToggle={onToggle}
+              onSubmit={onSubmit}
+              onValidate={onValidate}
+              onReject={onReject}
+              onReopen={onReopen}
               onDelete={onDelete}
               onEdit={onEdit}
               ObjectiveFields={ObjectiveFields}
@@ -352,7 +400,7 @@ export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onE
   );
 }
 
-export function TodoMobileList({ todos, isAdmin, canValidate, onToggle, onDelete, onEdit, ObjectiveFields }) {
+export function TodoMobileList({ todos, isAdmin, onSubmit, onValidate, onReject, onReopen, onDelete, onEdit, ObjectiveFields }) {
   return (
     <div className="todo-mobile-list mobile-only">
       {todos.map((todo) => (
@@ -360,8 +408,10 @@ export function TodoMobileList({ todos, isAdmin, canValidate, onToggle, onDelete
           key={todo.id}
           todo={todo}
           isAdmin={isAdmin}
-          canValidate={canValidate}
-          onToggle={onToggle}
+          onSubmit={onSubmit}
+          onValidate={onValidate}
+          onReject={onReject}
+          onReopen={onReopen}
           onDelete={onDelete}
           onEdit={onEdit}
           ObjectiveFields={ObjectiveFields}

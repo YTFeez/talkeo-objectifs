@@ -5,27 +5,39 @@ import { hashPassword } from '../credentials.js';
 import { logTodoAction, getHistory } from '../dailyLog.js';
 import { parseFixedBonus, applyPercentDistribution, onTodoCompleted, onTodoReopened } from '../economy.js';
 import { seedDemoTodos } from '../seedTodos.js';
+import { createNotification } from '../notifications.js';
+import { checkAchievements } from '../achievements.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 
+const CATEGORIES = ['maison', 'ecole', 'hygiene', 'animaux', 'cuisine', 'autre'];
+const REPEAT_TYPES = ['none', 'daily', 'weekly', 'monthly'];
+const ACTIVE_STATUSES = ['pending', 'awaiting_validation', 'refused'];
+
 const SORT_ORDER = `
   ORDER BY
+    CASE status WHEN 'awaiting_validation' THEN 0 WHEN 'pending' THEN 1 WHEN 'refused' THEN 2 ELSE 3 END,
     CASE WHEN due_at IS NULL THEN 1 ELSE 0 END,
     due_at ASC,
     CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
-    CASE duration WHEN 'long' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
     created_at DESC
 `;
 
 function enrichTodo(todo, role) {
   const isParent = role === 'parent';
+  const isChild = role === 'admin';
   return {
     ...todo,
-    can_edit: role === 'admin' || (isParent && todo.status === 'pending'),
-    can_delete: role === 'admin' || isParent,
+    can_edit: isChild || (isParent && ACTIVE_STATUSES.includes(todo.status)),
+    can_delete: isChild || isParent,
+    can_submit: isChild && ACTIVE_STATUSES.includes(todo.status),
+    can_validate: isParent && todo.status === 'awaiting_validation',
+    can_reject: isParent && todo.status === 'awaiting_validation',
     task_type: todo.task_type || 'normal',
+    category: todo.category || 'maison',
+    repeat_type: todo.repeat_type || 'none',
   };
 }
 
@@ -37,19 +49,14 @@ function parseDueAt(value) {
   return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function buildTodoUpdates(body, allowStatus, canEditFields) {
+function buildTodoUpdates(body, canEditFields) {
   const {
-    status, title, description, priority, duration, author, due_at,
-    task_type, fixed_bonus,
+    title, description, priority, duration, author, due_at,
+    task_type, fixed_bonus, category, repeat_type,
   } = body;
   const updates = [];
   const params = [];
 
-  if (allowStatus && (status === 'done' || status === 'pending')) {
-    updates.push('status = ?');
-    params.push(status);
-    updates.push(status === 'done' ? "completed_at = datetime('now')" : 'completed_at = NULL');
-  }
   if (title?.trim()) {
     updates.push('title = ?');
     params.push(title.trim());
@@ -85,8 +92,69 @@ function buildTodoUpdates(body, allowStatus, canEditFields) {
     updates.push('fixed_bonus = ?');
     params.push(bonus);
   }
+  if (canEditFields && category && CATEGORIES.includes(category)) {
+    updates.push('category = ?');
+    params.push(category);
+  }
+  if (canEditFields && repeat_type && REPEAT_TYPES.includes(repeat_type)) {
+    updates.push('repeat_type = ?');
+    params.push(repeat_type);
+  }
 
   return { updates, params };
+}
+
+function nextDueDate(dueAt, repeatType) {
+  const base = dueAt ? new Date(dueAt.replace(' ', 'T')) : new Date();
+  if (repeatType === 'daily') base.setDate(base.getDate() + 1);
+  else if (repeatType === 'weekly') base.setDate(base.getDate() + 7);
+  else if (repeatType === 'monthly') base.setMonth(base.getMonth() + 1);
+  return base.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function createRepeatTask(todo) {
+  if (!todo.repeat_type || todo.repeat_type === 'none') return null;
+  const due = todo.due_at ? nextDueDate(todo.due_at, todo.repeat_type) : null;
+  const result = db.prepare(`
+    INSERT INTO todos (
+      title, description, author, priority, duration, due_at, task_type, fixed_bonus,
+      reward, category, repeat_type, creator_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+  `).run(
+    todo.title,
+    todo.description || '',
+    todo.author,
+    todo.priority,
+    todo.duration,
+    due,
+    todo.task_type || 'normal',
+    todo.fixed_bonus || 0,
+    todo.category || 'maison',
+    todo.repeat_type,
+    todo.creator_hash,
+  );
+  const newTodo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
+  logTodoAction(newTodo, 'created');
+  if ((newTodo.task_type || 'normal') === 'normal') applyPercentDistribution();
+  return newTodo;
+}
+
+function validateTodo(todo) {
+  db.prepare(`
+    UPDATE todos SET status = 'done', completed_at = datetime('now'), refused_reason = '' WHERE id = ?
+  `).run(todo.id);
+  const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+  const economyResult = onTodoCompleted(updated);
+  const achievements = checkAchievements();
+  logTodoAction(updated, 'completed');
+  createNotification({
+    type: 'task_validated',
+    title: 'Tâche validée ✓',
+    body: updated.title,
+    target_role: 'admin',
+  });
+  const repeated = createRepeatTask(todo);
+  return { updated, economyResult, achievements, repeated };
 }
 
 router.get('/history', (req, res) => {
@@ -110,9 +178,12 @@ router.get('/', (req, res) => {
   let sql = 'SELECT * FROM todos';
   const params = [];
 
-  if (status === 'pending' || status === 'done') {
-    sql += ' WHERE status = ?';
-    params.push(status);
+  if (status === 'pending') {
+    sql += " WHERE status IN ('pending', 'awaiting_validation', 'refused')";
+  } else if (status === 'awaiting_validation') {
+    sql += " WHERE status = 'awaiting_validation'";
+  } else if (status === 'done') {
+    sql += " WHERE status = 'done'";
   }
 
   sql += SORT_ORDER;
@@ -131,6 +202,8 @@ router.post('/', checkRole('parent'), (req, res) => {
     due_at,
     task_type = 'normal',
     fixed_bonus = 0,
+    category = 'maison',
+    repeat_type = 'none',
   } = req.body;
 
   if (!title?.trim()) {
@@ -140,6 +213,8 @@ router.post('/', checkRole('parent'), (req, res) => {
   const prio = ['low', 'normal', 'high'].includes(priority) ? priority : 'normal';
   const dur = ['short', 'normal', 'long'].includes(duration) ? duration : 'normal';
   const type = task_type === 'special' ? 'special' : 'normal';
+  const cat = CATEGORIES.includes(category) ? category : 'maison';
+  const repeat = REPEAT_TYPES.includes(repeat_type) ? repeat_type : 'none';
 
   let due = null;
   try {
@@ -158,12 +233,20 @@ router.post('/', checkRole('parent'), (req, res) => {
   const creatorHash = hashPassword(req.token);
 
   const result = db.prepare(`
-    INSERT INTO todos (title, description, author, priority, duration, due_at, task_type, fixed_bonus, reward, creator_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, type, bonus, creatorHash);
+    INSERT INTO todos (
+      title, description, author, priority, duration, due_at, task_type, fixed_bonus,
+      reward, category, repeat_type, creator_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, type, bonus, cat, repeat, creatorHash);
 
   const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
   logTodoAction(todo, 'created');
+  createNotification({
+    type: 'task_created',
+    title: 'Nouvelle tâche',
+    body: todo.title,
+    target_role: 'admin',
+  });
 
   if (type === 'normal') {
     applyPercentDistribution();
@@ -180,20 +263,73 @@ router.patch('/:id', (req, res) => {
 
   const isAdmin = req.role === 'admin';
   const isParent = req.role === 'parent';
-  const wantsStatusChange = req.body.status === 'done' || req.body.status === 'pending';
-  const canEditContent = isAdmin || (isParent && todo.status === 'pending');
+  const { action, refused_reason: refuseReason } = req.body;
+  const canEditContent = isAdmin || (isParent && ACTIVE_STATUSES.includes(todo.status));
 
-  if (wantsStatusChange && !isParent) {
-    return res.status(403).json({ error: 'Seuls les parents peuvent valider une tâche' });
+  // ——— Actions flux validation ———
+  if (action === 'submit' && isAdmin) {
+    if (!ACTIVE_STATUSES.includes(todo.status)) {
+      return res.status(400).json({ error: 'Cette tâche ne peut pas être soumise' });
+    }
+    db.prepare(`
+      UPDATE todos SET status = 'awaiting_validation', submitted_at = datetime('now'), refused_reason = '' WHERE id = ?
+    `).run(todo.id);
+    const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+    logTodoAction(updated, 'updated');
+    createNotification({
+      type: 'task_submitted',
+      title: 'Tâche à valider',
+      body: updated.title,
+      target_role: 'parent',
+    });
+    return res.json({ todo: enrichTodo(updated, req.role) });
   }
 
-  if (!wantsStatusChange && !canEditContent) {
+  if ((action === 'validate' || req.body.status === 'done') && isParent) {
+    if (!['awaiting_validation', 'pending'].includes(todo.status)) {
+      return res.status(400).json({ error: 'Rien à valider' });
+    }
+    const { updated, economyResult, achievements, repeated } = validateTodo(todo);
+    return res.json({ todo: enrichTodo(updated, req.role), economy: economyResult, achievements, repeated });
+  }
+
+  if ((action === 'reject' || req.body.status === 'refused') && isParent) {
+    if (todo.status !== 'awaiting_validation') {
+      return res.status(400).json({ error: 'Rien à refuser' });
+    }
+    const reason = (refuseReason || req.body.reason || 'À refaire').trim();
+    db.prepare(`
+      UPDATE todos SET status = 'refused', refused_reason = ?, completed_at = NULL WHERE id = ?
+    `).run(reason, todo.id);
+    const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+    logTodoAction(updated, 'updated');
+    createNotification({
+      type: 'task_refused',
+      title: 'Tâche refusée',
+      body: `${updated.title} — ${reason}`,
+      target_role: 'admin',
+    });
+    return res.json({ todo: enrichTodo(updated, req.role) });
+  }
+
+  if ((action === 'reopen' || req.body.status === 'pending') && isParent && todo.status === 'done') {
+    onTodoReopened(todo.id);
+    db.prepare("UPDATE todos SET status = 'pending', refused_reason = '' WHERE id = ?").run(todo.id);
+    const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+    logTodoAction(updated, 'updated');
+    applyPercentDistribution();
+    return res.json({ todo: enrichTodo(updated, req.role) });
+  }
+
+  // ——— Édition contenu ———
+  if (!canEditContent) {
     return res.status(403).json({ error: 'Vous ne pouvez pas modifier cet objectif' });
   }
 
-  let updates, params;
+  let updates;
+  let params;
   try {
-    ({ updates, params } = buildTodoUpdates(req.body, isParent && wantsStatusChange, canEditContent));
+    ({ updates, params } = buildTodoUpdates(req.body, canEditContent));
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -206,25 +342,12 @@ router.patch('/:id', (req, res) => {
   db.prepare(`UPDATE todos SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
   let updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
-  let economyResult = null;
-
-  if (req.body.status === 'done' && todo.status !== 'done') {
-    economyResult = onTodoCompleted(updated);
+  if ((updated.task_type || 'normal') === 'normal' && ACTIVE_STATUSES.includes(updated.status)) {
+    applyPercentDistribution();
     updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
-    logTodoAction(updated, 'completed');
-  } else if (req.body.status === 'pending' && todo.status === 'done') {
-    onTodoReopened(req.params.id);
-    updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
-    logTodoAction(updated, 'updated');
-  } else {
-    if (canEditContent && (updated.task_type || 'normal') === 'normal') {
-      applyPercentDistribution();
-      updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
-    }
-    logTodoAction(updated, 'updated');
   }
-
-  res.json({ todo: enrichTodo(updated, req.role), economy: economyResult });
+  logTodoAction(updated, 'updated');
+  res.json({ todo: enrichTodo(updated, req.role) });
 });
 
 router.delete('/:id', (req, res) => {
@@ -239,7 +362,7 @@ router.delete('/:id', (req, res) => {
   }
 
   db.prepare('DELETE FROM todos WHERE id = ?').run(req.params.id);
-  if ((todo.task_type || 'normal') === 'normal' && todo.status === 'pending') {
+  if ((todo.task_type || 'normal') === 'normal' && ACTIVE_STATUSES.includes(todo.status)) {
     applyPercentDistribution();
   }
 

@@ -199,6 +199,177 @@ function SavingsPanel({ profile, isAdmin, onRefresh }) {
   );
 }
 
+function GoalsPanel({ goals, isAdmin, onRefresh }) {
+  const [title, setTitle] = useState('');
+  const [target, setTarget] = useState('');
+  const [fundAmount, setFundAmount] = useState({});
+
+  async function createGoal(e) {
+    e.preventDefault();
+    await api('/goals', { method: 'POST', body: JSON.stringify({ title, target_amount: Number(target) }) });
+    setTitle('');
+    setTarget('');
+    onRefresh?.();
+  }
+
+  async function fundGoal(id) {
+    const amount = Number(fundAmount[id]);
+    if (!amount) return;
+    await api(`/goals/${id}/fund`, { method: 'POST', body: JSON.stringify({ amount }) });
+    setFundAmount((f) => ({ ...f, [id]: '' }));
+    onRefresh?.();
+  }
+
+  return (
+    <section className="wallet-section">
+      <h3 className="wallet-section-title">Coffres & objectifs</h3>
+      {isAdmin && (
+        <form className="wallet-action-form" onSubmit={createGoal}>
+          <input className="input-touch" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : Réplique airsoft" required />
+          <input className="input-touch" type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Objectif €" required />
+          <button type="submit" className="btn btn-primary btn-touch">Créer un coffre</button>
+        </form>
+      )}
+      {goals.length === 0 ? (
+        <p className="hint">Aucun objectif d&apos;épargne pour l&apos;instant.</p>
+      ) : (
+        <div className="goals-list">
+          {goals.map((g) => {
+            const pct = Math.min(100, Math.round((g.saved_amount / g.target_amount) * 100));
+            return (
+              <article key={g.id} className={`goal-card ${g.status === 'completed' ? 'completed' : ''}`}>
+                <div className="goal-header">
+                  <strong>{g.title}</strong>
+                  <span>{formatMoney(g.saved_amount)} / {formatMoney(g.target_amount)}</span>
+                </div>
+                <div className="xp-bar-wrap goal-bar">
+                  <div className="xp-bar" style={{ width: `${pct}%` }} />
+                </div>
+                {isAdmin && g.status === 'active' && (
+                  <div className="goal-fund-row">
+                    <input
+                      type="number"
+                      className="input-touch"
+                      min="0"
+                      step="0.5"
+                      placeholder="Montant €"
+                      value={fundAmount[g.id] || ''}
+                      onChange={(e) => setFundAmount((f) => ({ ...f, [g.id]: e.target.value }))}
+                    />
+                    <button type="button" className="btn btn-secondary btn-touch" onClick={() => fundGoal(g.id)}>Verser</button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BadgesPanel() {
+  const [badges, setBadges] = useState([]);
+  useEffect(() => {
+    api('/achievements').then((d) => setBadges(d.achievements || [])).catch(() => setBadges([]));
+  }, []);
+  return (
+    <section className="wallet-section">
+      <h3 className="wallet-section-title">Badges</h3>
+      <div className="badges-grid">
+        {badges.map((b) => (
+          <article key={b.code} className={`badge-card ${b.unlocked ? 'unlocked' : 'locked'}`}>
+            <span className="badge-icon">{b.icon}</span>
+            <strong>{b.title}</strong>
+            <p className="hint">{b.description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HistoryPanel() {
+  const [txs, setTxs] = useState([]);
+  useEffect(() => {
+    api('/wallet/transactions').then((d) => setTxs(d.transactions || [])).catch(() => setTxs([]));
+  }, []);
+  const typeLabels = {
+    task_reward: 'Tâche validée',
+    bonus: 'Bonus',
+    penalty: 'Pénalité',
+    to_savings: 'Épargne',
+    to_goal: 'Coffre',
+    withdrawal_request: 'Retrait demandé',
+    xp_penalty: 'XP retiré',
+    monthly_credit: 'Crédit mensuel',
+  };
+  return (
+    <section className="wallet-section">
+      <h3 className="wallet-section-title">Historique</h3>
+      {txs.length === 0 ? (
+        <p className="hint">Aucune opération enregistrée.</p>
+      ) : (
+        <ul className="tx-history-list">
+          {txs.map((t) => (
+            <li key={t.id} className={t.amount >= 0 ? 'tx-plus' : 'tx-minus'}>
+              <div>
+                <strong>{typeLabels[t.type] || t.type}</strong>
+                <p className="hint">{t.note} · {formatDate(t.created_at)}</p>
+              </div>
+              <span>{t.type === 'xp_penalty' ? `${t.amount} XP` : formatMoney(Math.abs(t.amount))}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ParentTools({ onRefresh }) {
+  const [bonusAmt, setBonusAmt] = useState('');
+  const [bonusNote, setBonusNote] = useState('');
+  const [penAmt, setPenAmt] = useState('');
+  const [penXp, setPenXp] = useState('');
+  const [penNote, setPenNote] = useState('');
+
+  async function giveBonus(e) {
+    e.preventDefault();
+    await api('/wallet/bonus', { method: 'POST', body: JSON.stringify({ amount: Number(bonusAmt), note: bonusNote || 'Bonus' }) });
+    setBonusAmt('');
+    setBonusNote('');
+    onRefresh?.();
+  }
+
+  async function givePenalty(e) {
+    e.preventDefault();
+    await api('/wallet/penalty', { method: 'POST', body: JSON.stringify({ amount: Number(penAmt) || 0, xp: Number(penXp) || 0, note: penNote || 'Pénalité' }) });
+    setPenAmt('');
+    setPenXp('');
+    setPenNote('');
+    onRefresh?.();
+  }
+
+  return (
+    <section className="wallet-section">
+      <h3 className="wallet-section-title">Bonus & pénalités</h3>
+      <form className="wallet-action-form" onSubmit={giveBonus}>
+        <p className="hint">Attribuer un bonus manuel</p>
+        <input className="input-touch" type="number" min="0" step="0.5" value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} placeholder="Montant €" required />
+        <input className="input-touch" value={bonusNote} onChange={(e) => setBonusNote(e.target.value)} placeholder="Commentaire" />
+        <button type="submit" className="btn btn-primary btn-touch">Donner le bonus</button>
+      </form>
+      <form className="wallet-action-form" onSubmit={givePenalty}>
+        <p className="hint">Appliquer une pénalité</p>
+        <input className="input-touch" type="number" min="0" step="0.5" value={penAmt} onChange={(e) => setPenAmt(e.target.value)} placeholder="Retrait €" />
+        <input className="input-touch" type="number" min="0" value={penXp} onChange={(e) => setPenXp(e.target.value)} placeholder="Retrait XP" />
+        <input className="input-touch" value={penNote} onChange={(e) => setPenNote(e.target.value)} placeholder="Commentaire" />
+        <button type="submit" className="btn btn-secondary btn-touch danger">Appliquer</button>
+      </form>
+    </section>
+  );
+}
+
 export default function PocketView({ isMobile, isAdmin }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState(isAdmin ? 'money' : 'xp');
@@ -227,6 +398,7 @@ export default function PocketView({ isMobile, isAdmin }) {
 
   const profile = data.wallet?.profile || data.profile;
   const economy = data.wallet?.economy || data.current?.economy || data.economy;
+  const goals = data.goals || [];
 
   if (!profile || !economy) {
     return <p className="state-msg">Données indisponibles.</p>;
@@ -235,10 +407,16 @@ export default function PocketView({ isMobile, isAdmin }) {
   const tabs = isAdmin
     ? [
         { id: 'money', label: 'Argent' },
-        { id: 'xp', label: 'XP & récompenses' },
+        { id: 'xp', label: 'XP' },
         { id: 'savings', label: 'Épargne' },
+        { id: 'goals', label: 'Coffres' },
+        { id: 'badges', label: 'Badges' },
+        { id: 'history', label: 'Historique' },
       ]
-    : [{ id: 'xp', label: 'Idées de récompenses' }];
+    : [
+        { id: 'xp', label: 'Récompenses' },
+        { id: 'tools', label: 'Bonus' },
+      ];
 
   return (
     <div className="wallet-view">
@@ -335,6 +513,10 @@ export default function PocketView({ isMobile, isAdmin }) {
 
       {tab === 'xp' && <XpPanel profile={profile} isAdmin={isAdmin} onRefresh={load} />}
       {isAdmin && tab === 'savings' && <SavingsPanel profile={profile} isAdmin={isAdmin} onRefresh={load} />}
+      {tab === 'goals' && isAdmin && <GoalsPanel goals={goals} isAdmin={isAdmin} onRefresh={load} />}
+      {tab === 'badges' && isAdmin && <BadgesPanel />}
+      {tab === 'history' && isAdmin && <HistoryPanel />}
+      {!isAdmin && tab === 'tools' && <ParentTools onRefresh={load} />}
     </div>
   );
 }

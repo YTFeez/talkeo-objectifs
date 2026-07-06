@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../auth.js';
 import { getSummary, getMonthDetail, currentMonthKey } from '../rewards.js';
-import { getWalletSummary } from '../economy.js';
+import { getWalletSummary, listGoals } from '../economy.js';
 
 const router = Router();
 
@@ -9,7 +9,7 @@ router.use(authMiddleware);
 
 router.get('/summary', (req, res) => {
   if (req.role === 'admin') {
-    return res.json({ ...getSummary(), wallet: getWalletSummary() });
+    return res.json({ ...getSummary(), wallet: getWalletSummary(), goals: listGoals() });
   }
   res.json(getWalletSummary());
 });

@@ -138,4 +138,114 @@ db.exec(`
   )
 `);
 
+// ——— Migrations colonnes todos ———
+const todoCols = db.prepare('PRAGMA table_info(todos)').all().map((c) => c.name);
+if (!todoCols.includes('category')) {
+  db.exec("ALTER TABLE todos ADD COLUMN category TEXT NOT NULL DEFAULT 'maison'");
+}
+if (!todoCols.includes('repeat_type')) {
+  db.exec("ALTER TABLE todos ADD COLUMN repeat_type TEXT NOT NULL DEFAULT 'none'");
+}
+if (!todoCols.includes('refused_reason')) {
+  db.exec("ALTER TABLE todos ADD COLUMN refused_reason TEXT DEFAULT ''");
+}
+if (!todoCols.includes('submitted_at')) {
+  db.exec('ALTER TABLE todos ADD COLUMN submitted_at TEXT');
+}
+
+// Étendre les statuts : pending → awaiting_validation → done / refused
+(function migrateTodoStatusCheck() {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='todos'").get();
+  if (!row?.sql || row.sql.includes('awaiting_validation')) return;
+
+  db.exec(`
+    PRAGMA foreign_keys=OFF;
+    CREATE TABLE todos_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      author TEXT NOT NULL DEFAULT 'Parent',
+      priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low', 'normal', 'high')),
+      duration TEXT NOT NULL DEFAULT 'normal' CHECK(duration IN ('short', 'normal', 'long')),
+      due_at TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'awaiting_validation', 'done', 'refused')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      creator_hash TEXT,
+      reward REAL NOT NULL DEFAULT 0,
+      task_type TEXT NOT NULL DEFAULT 'normal',
+      reward_percent REAL NOT NULL DEFAULT 0,
+      fixed_bonus REAL NOT NULL DEFAULT 0,
+      earned_amount REAL,
+      completed_percent REAL,
+      category TEXT NOT NULL DEFAULT 'maison',
+      repeat_type TEXT NOT NULL DEFAULT 'none',
+      refused_reason TEXT DEFAULT '',
+      submitted_at TEXT
+    );
+    INSERT INTO todos_new (
+      id, title, description, author, priority, duration, due_at, status,
+      created_at, completed_at, creator_hash, reward, task_type, reward_percent,
+      fixed_bonus, earned_amount, completed_percent, category, repeat_type, refused_reason, submitted_at
+    )
+    SELECT
+      id, title, description, author, priority, duration, due_at, status,
+      created_at, completed_at, creator_hash, reward, task_type, reward_percent,
+      fixed_bonus, earned_amount, completed_percent,
+      COALESCE(category, 'maison'), COALESCE(repeat_type, 'none'),
+      COALESCE(refused_reason, ''), submitted_at
+    FROM todos;
+    DROP TABLE todos;
+    ALTER TABLE todos_new RENAME TO todos;
+    CREATE INDEX IF NOT EXISTS idx_todos_created ON todos(created_at);
+    CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_at);
+    PRAGMA foreign_keys=ON;
+  `);
+})();
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS savings_goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    saved_amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS achievements (
+    code TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '🏅'
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS child_achievements (
+    achievement_code TEXT PRIMARY KEY,
+    unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (achievement_code) REFERENCES achievements(code)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_role TEXT NOT NULL DEFAULT 'all',
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT DEFAULT '',
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(target_role, read);
+`);
+
 export default db;
