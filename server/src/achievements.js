@@ -8,7 +8,7 @@ export const ACHIEVEMENT_DEFS = [
   { code: 'euro_100', title: '100 €', description: 'Cumuler 100 € de gains', icon: '💰' },
   { code: 'euro_500', title: '500 €', description: 'Cumuler 500 € de gains', icon: '🤑' },
   { code: 'streak_30', title: '30 jours de suite', description: 'Atteindre 30 de strike', icon: '🔥' },
-  { code: 'first_goal', title: 'Premier objectif', description: 'Atteindre un coffre', icon: '🎯' },
+  { code: 'first_goal', title: 'Premier objectif', description: 'Atteindre un objectif (coffre)', icon: '🎯' },
   { code: 'level_5', title: 'Niveau 5', description: 'Atteindre le niveau 5', icon: '⭐' },
 ];
 

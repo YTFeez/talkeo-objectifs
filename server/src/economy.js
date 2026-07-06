@@ -88,6 +88,21 @@ function monthKeyParis(iso) {
   return d.toLocaleDateString('en-CA', { timeZone: TIMEZONE }).slice(0, 7);
 }
 
+export function getTotalEarned() {
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) AS total FROM wallet_transactions
+    WHERE amount > 0 AND type IN ('task_reward', 'bonus', 'monthly_credit')
+  `).get();
+  return round2(row.total);
+}
+
+export function getGoalsReservedTotal() {
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(saved_amount), 0) AS total FROM savings_goals
+  `).get();
+  return round2(row.total);
+}
+
 export function getChildProfile() {
   let row = db.prepare('SELECT * FROM child_profile WHERE id = 1').get();
   if (!row) {
@@ -289,6 +304,8 @@ export function getWalletSummary() {
       current_balance: round2(profile.current_balance),
       savings_balance: round2(profile.savings_balance),
       savings_rate_percent: profile.savings_rate_percent,
+      total_earned: getTotalEarned(),
+      goals_reserved: getGoalsReservedTotal(),
       next_reward_level: nextRewardLevel,
       reward_level_interval: REWARD_LEVEL_INTERVAL,
     },
@@ -409,7 +426,7 @@ export function transferToGoal(goalId, amount) {
     WHERE id = ?
   `).run(newSaved, completed ? 'completed' : 'active', completed ? 1 : 0, goalId);
 
-  db.prepare(`INSERT INTO wallet_transactions (type, amount, note) VALUES ('to_goal', ?, ?)`).run(amt, `Coffre : ${goal.title}`);
+  db.prepare(`INSERT INTO wallet_transactions (type, amount, note) VALUES ('to_goal', ?, ?)`).run(amt, `Objectif : ${goal.title}`);
   return db.prepare('SELECT * FROM savings_goals WHERE id = ?').get(goalId);
 }
 

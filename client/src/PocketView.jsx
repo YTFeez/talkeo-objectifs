@@ -1,11 +1,43 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, formatMoney, formatDate, formatPercent } from './api';
+import { api, formatMoney, formatDate, formatPercent, ACCOUNT_LABELS } from './api';
+
+function AccountsOverview({ profile, economy }) {
+  return (
+    <div className="accounts-overview">
+      <div className="account-card allocation">
+        <span className="label">{ACCOUNT_LABELS.monthly_allocation}</span>
+        <span className="amount">{formatMoney(economy.monthly_base)}</span>
+        <p className="hint">Budget mensuel · recompte le 1er</p>
+      </div>
+      <div className="account-card">
+        <span className="label">{ACCOUNT_LABELS.current_account}</span>
+        <span className="amount">{formatMoney(profile.current_balance)}</span>
+        <p className="hint">Disponible tout de suite</p>
+      </div>
+      <div className="account-card savings">
+        <span className="label">{ACCOUNT_LABELS.savings}</span>
+        <span className="amount">{formatMoney(profile.savings_balance)}</span>
+        <p className="hint">Mis de côté pour plus tard</p>
+      </div>
+      <div className="account-card total-earned">
+        <span className="label">{ACCOUNT_LABELS.total_earned}</span>
+        <span className="amount">{formatMoney(profile.total_earned)}</span>
+        <p className="hint">Tâches, bonus, allocations…</p>
+      </div>
+      <div className="account-card goals">
+        <span className="label">{ACCOUNT_LABELS.goals}</span>
+        <span className="amount">{formatMoney(profile.goals_reserved)}</span>
+        <p className="hint">Réservé pour un achat précis</p>
+      </div>
+    </div>
+  );
+}
 
 function EconomyBreakdown({ economy }) {
   return (
     <div className="wallet-breakdown">
       <div className="wallet-row">
-        <span>Base mensuelle</span>
+        <span>{ACCOUNT_LABELS.monthly_allocation}</span>
         <strong>{formatMoney(economy.monthly_base)}</strong>
       </div>
       <div className="wallet-row earned">
@@ -27,7 +59,7 @@ function EconomyBreakdown({ economy }) {
         </div>
       )}
       <div className="wallet-row total">
-        <span>Total projeté ce mois</span>
+        <span>Gains prévus ce mois</span>
         <strong>{formatMoney(economy.projected_total)}</strong>
       </div>
     </div>
@@ -158,15 +190,19 @@ function SavingsPanel({ profile, isAdmin, onRefresh }) {
 
   return (
     <section className="wallet-section">
-      <h3 className="wallet-section-title">Épargne & compte</h3>
+      <h3 className="wallet-section-title">Comptes</h3>
       <div className="wallet-balances">
         <div className="wallet-balance-card">
-          <span className="label">Compte courant</span>
+          <span className="label">{ACCOUNT_LABELS.current_account}</span>
           <span className="amount">{formatMoney(profile.current_balance)}</span>
         </div>
         <div className="wallet-balance-card savings">
-          <span className="label">Épargne</span>
+          <span className="label">{ACCOUNT_LABELS.savings}</span>
           <span className="amount">{formatMoney(profile.savings_balance)}</span>
+        </div>
+        <div className="wallet-balance-card total-earned">
+          <span className="label">{ACCOUNT_LABELS.total_earned}</span>
+          <span className="amount">{formatMoney(profile.total_earned)}</span>
         </div>
       </div>
 
@@ -181,7 +217,7 @@ function SavingsPanel({ profile, isAdmin, onRefresh }) {
           </form>
           <form className="wallet-action-form" onSubmit={toSavings}>
             <label className="field-label">
-              Transférer vers l&apos;épargne (€)
+              Verser vers l&apos;{ACCOUNT_LABELS.savings.toLowerCase()} (depuis le compte courant)
               <input type="number" className="input-touch" min="0" step="0.5" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
             <button type="submit" className="btn btn-secondary btn-touch">Épargner</button>
@@ -222,16 +258,16 @@ function GoalsPanel({ goals, isAdmin, onRefresh }) {
 
   return (
     <section className="wallet-section">
-      <h3 className="wallet-section-title">Coffres & objectifs</h3>
+      <h3 className="wallet-section-title">{ACCOUNT_LABELS.goals}</h3>
       {isAdmin && (
         <form className="wallet-action-form" onSubmit={createGoal}>
           <input className="input-touch" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : Réplique airsoft" required />
-          <input className="input-touch" type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Objectif €" required />
-          <button type="submit" className="btn btn-primary btn-touch">Créer un coffre</button>
+          <input className="input-touch" type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Montant cible €" required />
+          <button type="submit" className="btn btn-primary btn-touch">Créer un objectif</button>
         </form>
       )}
       {goals.length === 0 ? (
-        <p className="hint">Aucun objectif d&apos;épargne pour l&apos;instant.</p>
+        <p className="hint">Aucun objectif pour l&apos;instant — réserve de l&apos;argent pour un achat précis.</p>
       ) : (
         <div className="goals-list">
           {goals.map((g) => {
@@ -256,7 +292,7 @@ function GoalsPanel({ goals, isAdmin, onRefresh }) {
                       value={fundAmount[g.id] || ''}
                       onChange={(e) => setFundAmount((f) => ({ ...f, [g.id]: e.target.value }))}
                     />
-                    <button type="button" className="btn btn-secondary btn-touch" onClick={() => fundGoal(g.id)}>Verser</button>
+                    <button type="button" className="btn btn-secondary btn-touch" onClick={() => fundGoal(g.id)}>Verser depuis le compte courant</button>
                   </div>
                 )}
               </article>
@@ -298,11 +334,11 @@ function HistoryPanel() {
     task_reward: 'Tâche validée',
     bonus: 'Bonus',
     penalty: 'Pénalité',
-    to_savings: 'Épargne',
-    to_goal: 'Coffre',
+    to_savings: ACCOUNT_LABELS.savings,
+    to_goal: ACCOUNT_LABELS.goals,
     withdrawal_request: 'Retrait demandé',
     xp_penalty: 'XP retiré',
-    monthly_credit: 'Crédit mensuel',
+    monthly_credit: ACCOUNT_LABELS.monthly_allocation,
   };
   return (
     <section className="wallet-section">
@@ -408,8 +444,8 @@ export default function PocketView({ isMobile, isAdmin }) {
     ? [
         { id: 'money', label: 'Argent' },
         { id: 'xp', label: 'XP' },
-        { id: 'savings', label: 'Épargne' },
-        { id: 'goals', label: 'Coffres' },
+        { id: 'savings', label: ACCOUNT_LABELS.savings },
+        { id: 'goals', label: 'Objectifs' },
         { id: 'badges', label: 'Badges' },
         { id: 'history', label: 'Historique' },
       ]
@@ -423,10 +459,11 @@ export default function PocketView({ isMobile, isAdmin }) {
       <div className="wallet-hero">
         {isAdmin ? (
           <>
-            <p className="wallet-hero-label">Ce mois-ci · base {formatMoney(economy.monthly_base)}</p>
-            <p className="wallet-hero-amount">{formatMoney(economy.projected_total)}</p>
+            <p className="wallet-hero-label">{ACCOUNT_LABELS.monthly_allocation} · {formatMoney(economy.monthly_base)}</p>
+            <p className="wallet-hero-amount">{formatMoney(profile.current_balance)}</p>
             <p className="wallet-hero-meta">
-              Strike {profile.current_strike}🔥 · Niveau {profile.level} · max possible {formatMoney(economy.max_if_all_done)}
+              {ACCOUNT_LABELS.current_account} · {ACCOUNT_LABELS.total_earned} {formatMoney(profile.total_earned)}
+              · Strike {profile.current_strike}🔥
             </p>
           </>
         ) : (
@@ -440,6 +477,8 @@ export default function PocketView({ isMobile, isAdmin }) {
           </>
         )}
       </div>
+
+      {isAdmin && <AccountsOverview profile={profile} economy={economy} />}
 
       {tabs.length > 1 && (
         <div className="wallet-tabs" role="tablist">

@@ -1,4 +1,4 @@
-import { formatDue, formatMoney, formatPercent, formatEventAt, ROLE_LABELS, isOverdue } from './api';
+import { formatDue, formatMoney, formatPercent, formatEventAt, ROLE_LABELS, isOverdue, ACCOUNT_LABELS } from './api';
 import TaskQuickSuggestions from './TaskQuickSuggestions';
 
 function StatCard({ label, value, sub, accent, onClick }) {
@@ -82,9 +82,9 @@ export default function HomeView({
         />
         {isAdmin ? (
           <StatCard
-            label="Ce mois"
+            label="Gains prévus ce mois"
             value={formatMoney(pocketTotal)}
-            sub="argent de poche"
+            sub={`${ACCOUNT_LABELS.monthly_allocation} : 40 €`}
             accent="stat-pocket"
             onClick={() => onNavigate('pocket')}
           />

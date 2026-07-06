@@ -241,3 +241,12 @@ export const TASK_STATUS_LABELS = {
   done: 'Validée',
   refused: 'Refusée',
 };
+
+/** Libellés officiels des comptes (économie familiale). */
+export const ACCOUNT_LABELS = {
+  monthly_allocation: 'Allocation mensuelle',
+  current_account: 'Compte courant',
+  savings: 'Épargne',
+  total_earned: 'Total gagné',
+  goals: 'Objectifs (Coffre)',
+};

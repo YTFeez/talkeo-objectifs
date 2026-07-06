@@ -3586,6 +3586,60 @@ button.home-stat-card:hover {
   gap: var(--space-sm);
 }
 
+.accounts-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-sm);
+}
+
+.account-card {
+  padding: var(--space-md);
+  border-radius: 12px;
+  border: 1px solid var(--stroke-tertiary);
+  background: var(--bg-editor);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-card.allocation {
+  border-color: rgba(0, 120, 212, 0.35);
+}
+
+.account-card.savings {
+  border-color: rgba(78, 201, 176, 0.35);
+}
+
+.account-card.total-earned {
+  border-color: rgba(255, 193, 7, 0.35);
+}
+
+.account-card.goals {
+  border-color: rgba(156, 39, 176, 0.35);
+}
+
+.account-card .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  line-height: 1.3;
+}
+
+.account-card .amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.account-card .hint {
+  margin: 0;
+  font-size: 10px;
+}
+
+.wallet-balance-card.total-earned .amount {
+  color: #c9a227;
+}
+
 .mobile-top-bar {
   display: flex;
   align-items: center;

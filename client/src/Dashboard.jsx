@@ -655,7 +655,7 @@ export default function Dashboard({ auth, onLogout }) {
     { id: 'done', label: 'Terminés', sub: 'Déjà validés' },
     { id: 'events', label: 'Événements', count: eventsCount, sub: 'Agenda familial' },
     ...(isAdmin
-      ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal), sub: 'Recompte le 1er' }]
+      ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal), sub: 'Allocation 40 € · recompte le 1er' }]
       : [{ id: 'pocket', label: 'Récompenses', sub: 'Idées d\'Aronne' }]),
     { id: 'history', label: 'Historique', sub: '30 derniers jours' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous', sub: 'Vue complète' }] : []),
@@ -848,7 +848,7 @@ export default function Dashboard({ auth, onLogout }) {
 
             {!isAdmin && filter === 'pending' && (
               <p className="admin-banner admin-banner-actions">
-                <span>Les % se réajustent à chaque modification. Base : 40 €/mois.</span>
+                <span>Les % se réajustent à chaque modification. Allocation mensuelle : 40 €.</span>
                 <button type="button" className="btn btn-secondary btn-touch" onClick={handleApplyPercents}>
                   Appliquer maintenant
                 </button>
