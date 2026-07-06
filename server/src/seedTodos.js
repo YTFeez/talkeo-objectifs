@@ -1,5 +1,6 @@
 import db from './db.js';
 import { logTodoAction } from './dailyLog.js';
+import { applyPercentDistribution } from './economy.js';
 
 const SAMPLE_TODOS = [
   {
@@ -8,7 +9,7 @@ const SAMPLE_TODOS = [
     author: 'Maman',
     priority: 'normal',
     duration: 'normal',
-    reward: 2.5,
+    task_type: 'normal',
     status: 'pending',
   },
   {
@@ -17,7 +18,7 @@ const SAMPLE_TODOS = [
     author: 'Papa',
     priority: 'high',
     duration: 'short',
-    reward: 1.5,
+    task_type: 'normal',
     status: 'pending',
   },
   {
@@ -26,7 +27,17 @@ const SAMPLE_TODOS = [
     author: 'Maman',
     priority: 'low',
     duration: 'short',
-    reward: 1,
+    task_type: 'normal',
+    status: 'pending',
+  },
+  {
+    title: 'Bonus : aide exceptionnelle jardin',
+    description: 'Tonte ou gros rangement dehors',
+    author: 'Papa',
+    priority: 'high',
+    duration: 'long',
+    task_type: 'special',
+    fixed_bonus: 5,
     status: 'pending',
   },
   {
@@ -35,7 +46,7 @@ const SAMPLE_TODOS = [
     author: 'Maman',
     priority: 'high',
     duration: 'normal',
-    reward: 3,
+    task_type: 'normal',
     status: 'done',
     completedDaysAgo: 1,
     createdDaysAgo: 3,
@@ -46,7 +57,7 @@ const SAMPLE_TODOS = [
     author: 'Papa',
     priority: 'normal',
     duration: 'short',
-    reward: 1,
+    task_type: 'normal',
     status: 'done',
     completedDaysAgo: 2,
     createdDaysAgo: 5,
@@ -57,7 +68,7 @@ const SAMPLE_TODOS = [
     author: 'Maman',
     priority: 'normal',
     duration: 'normal',
-    reward: 2,
+    task_type: 'normal',
     status: 'done',
     completedDaysAgo: 5,
     createdDaysAgo: 7,
@@ -68,7 +79,7 @@ const SAMPLE_TODOS = [
     author: 'Papa',
     priority: 'low',
     duration: 'short',
-    reward: 1,
+    task_type: 'normal',
     status: 'done',
     completedDaysAgo: 8,
     createdDaysAgo: 10,
@@ -79,7 +90,7 @@ const SAMPLE_TODOS = [
     author: 'Papa',
     priority: 'normal',
     duration: 'long',
-    reward: 4,
+    task_type: 'normal',
     status: 'done',
     completedDaysAgo: 35,
     createdDaysAgo: 38,
@@ -97,8 +108,9 @@ export function seedDemoTodos() {
 
   const insert = db.prepare(`
     INSERT INTO todos (
-      title, description, author, priority, duration, reward, status, created_at, completed_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      title, description, author, priority, duration, task_type, fixed_bonus,
+      reward, status, created_at, completed_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
   `);
 
   for (const sample of SAMPLE_TODOS) {
@@ -115,7 +127,8 @@ export function seedDemoTodos() {
       sample.author,
       sample.priority,
       sample.duration,
-      sample.reward,
+      sample.task_type || 'normal',
+      sample.fixed_bonus || 0,
       sample.status,
       createdAt,
       completedAt,
@@ -127,6 +140,10 @@ export function seedDemoTodos() {
       logTodoAction(todo, 'completed');
     }
     inserted += 1;
+  }
+
+  if (inserted > 0) {
+    applyPercentDistribution();
   }
 
   return inserted;

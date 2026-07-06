@@ -1647,13 +1647,15 @@ select:focus {
   text-overflow: ellipsis;
 }
 
-.pocket-view {
+.pocket-view,
+.wallet-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
 }
 
-.pocket-hero {
+.pocket-hero,
+.wallet-hero {
   padding: var(--space-lg);
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(78, 201, 176, 0.14), rgba(0, 120, 212, 0.1));
@@ -1661,14 +1663,16 @@ select:focus {
   text-align: center;
 }
 
-.pocket-hero-label {
+.pocket-hero-label,
+.wallet-hero-label {
   margin: 0;
   font-size: 13px;
   color: var(--text-secondary);
   text-transform: capitalize;
 }
 
-.pocket-hero-amount {
+.pocket-hero-amount,
+.wallet-hero-amount {
   margin: var(--space-sm) 0;
   font-size: 36px;
   font-weight: 700;
@@ -1676,11 +1680,217 @@ select:focus {
   letter-spacing: -0.02em;
 }
 
-.pocket-hero-meta {
+.pocket-hero-meta,
+.wallet-hero-meta {
   margin: 0;
   font-size: 12px;
   color: var(--text-tertiary);
   line-height: 1.5;
+}
+
+.wallet-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.wallet-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: var(--radius);
+  background: var(--bg-editor);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wallet-tab.active {
+  background: var(--fill-secondary);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.wallet-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.wallet-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.wallet-section-sub {
+  margin: 0 0 var(--space-xs);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.wallet-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-md);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: 12px;
+  background: var(--bg-editor);
+}
+
+.wallet-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.wallet-row.earned strong,
+.wallet-row.bonus strong,
+.wallet-row.strike strong {
+  color: var(--success);
+}
+
+.wallet-row.risk strong {
+  color: var(--warning, #e8a317);
+}
+
+.wallet-row.total {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--stroke-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wallet-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.wallet-balance-card {
+  padding: var(--space-md);
+  border-radius: 12px;
+  border: 1px solid var(--stroke-tertiary);
+  background: var(--bg-editor);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wallet-balance-card.savings {
+  border-color: rgba(78, 201, 176, 0.35);
+}
+
+.wallet-balance-card .label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.wallet-balance-card .amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.wallet-action-form,
+.reward-idea-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: 12px;
+  background: var(--fill-secondary);
+}
+
+.xp-bar-wrap {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--fill-tertiary);
+  overflow: hidden;
+}
+
+.xp-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #4ec9b0);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.xp-meta {
+  margin: var(--space-xs) 0 0;
+}
+
+.reward-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.reward-request-card {
+  padding: var(--space-md);
+  border-radius: 12px;
+  border: 1px solid var(--stroke-tertiary);
+  background: var(--bg-editor);
+}
+
+.reward-request-card.status-accepted {
+  border-color: rgba(78, 201, 176, 0.4);
+}
+
+.reward-request-card.status-rejected {
+  opacity: 0.75;
+}
+
+.reward-request-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.field-percent-hint {
+  margin: 0;
+  font-size: 12px;
+  align-self: center;
+}
+
+.reward-badge.special {
+  background: rgba(255, 193, 7, 0.15);
+  color: #c9a227;
+  border-color: rgba(255, 193, 7, 0.35);
+}
+
+.special-tag {
+  color: #c9a227;
+}
+
+.risk-card {
+  border-color: rgba(232, 163, 23, 0.35);
+}
+
+.pocket-mobile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--stroke-tertiary);
+  border-radius: 12px;
+  background: var(--bg-editor);
+}
+
+.pocket-mobile-gain {
+  font-weight: 700;
+  color: var(--success);
+  white-space: nowrap;
 }
 
 .pocket-section-title {

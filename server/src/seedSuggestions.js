@@ -1,12 +1,12 @@
 import db from './db.js';
 
 export const BUILTIN_SUGGESTIONS = [
-  { title: 'Ranger la chambre', reward: 2.5, duration: 'normal', priority: 'normal' },
-  { title: 'Faire la vaisselle', reward: 1, duration: 'short', priority: 'normal' },
-  { title: 'Sortir le chien', reward: 1.5, duration: 'short', priority: 'high' },
-  { title: 'Devoirs du soir', reward: 3, duration: 'normal', priority: 'high' },
-  { title: 'Vider le lave-vaisselle', reward: 1, duration: 'short', priority: 'low' },
-  { title: 'Arroser les plantes', reward: 1, duration: 'short', priority: 'low' },
+  { title: 'Ranger la chambre', duration: 'normal', priority: 'normal' },
+  { title: 'Faire la vaisselle', duration: 'short', priority: 'normal' },
+  { title: 'Sortir le chien', duration: 'short', priority: 'high' },
+  { title: 'Devoirs du soir', duration: 'normal', priority: 'high' },
+  { title: 'Vider le lave-vaisselle', duration: 'short', priority: 'low' },
+  { title: 'Arroser les plantes', duration: 'short', priority: 'low' },
 ];
 
 export function seedSuggestionsIfEmpty() {
@@ -19,7 +19,7 @@ export function seedSuggestionsIfEmpty() {
   `);
 
   for (const s of BUILTIN_SUGGESTIONS) {
-    insert.run(s.title, s.reward, s.priority, s.duration);
+    insert.run(s.title, 0, s.priority, s.duration);
   }
 }
 
@@ -31,11 +31,11 @@ export function listSuggestions() {
   `).all();
 }
 
-export function createSuggestion({ title, reward, priority, duration }) {
+export function createSuggestion({ title, reward = 0, priority, duration }) {
   const result = db.prepare(`
     INSERT INTO task_suggestions (title, reward, priority, duration, is_builtin)
     VALUES (?, ?, ?, ?, 0)
-  `).run(title, reward, priority, duration);
+  `).run(title, reward || 0, priority || 'normal', duration || 'normal');
 
   return db.prepare('SELECT * FROM task_suggestions WHERE id = ?').get(result.lastInsertRowid);
 }

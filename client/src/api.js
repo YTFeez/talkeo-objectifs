@@ -213,3 +213,8 @@ export function formatMoney(amount) {
     currency: 'EUR',
   }).format(Number(amount) || 0);
 }
+
+export function formatPercent(value) {
+  const n = Number(value) || 0;
+  return `${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+}

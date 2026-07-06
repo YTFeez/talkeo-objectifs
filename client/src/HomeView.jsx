@@ -1,4 +1,4 @@
-import { formatDue, formatMoney, formatEventAt, ROLE_LABELS, isOverdue } from './api';
+import { formatDue, formatMoney, formatPercent, formatEventAt, ROLE_LABELS, isOverdue } from './api';
 import TaskQuickSuggestions from './TaskQuickSuggestions';
 
 function StatCard({ label, value, sub, accent, onClick }) {
@@ -23,6 +23,16 @@ function PreviewItem({ title, meta, badge, onClick, action }) {
       {action}
     </div>
   );
+}
+
+function taskBadge(todo) {
+  if (todo.task_type === 'special' && Number(todo.fixed_bonus) > 0) {
+    return `★ ${formatMoney(todo.fixed_bonus)}`;
+  }
+  if (Number(todo.reward_percent) > 0) {
+    return formatPercent(todo.reward_percent);
+  }
+  return null;
 }
 
 export default function HomeView({
@@ -131,7 +141,7 @@ export default function HomeView({
                   todo.author,
                   todo.due_at ? formatDue(todo.due_at) : null,
                 ].filter(Boolean).join(' · ')}
-                badge={Number(todo.reward) > 0 ? formatMoney(todo.reward) : null}
+                badge={taskBadge(todo)}
                 onClick={() => onNavigate('pending')}
                 action={
                   canValidate && (

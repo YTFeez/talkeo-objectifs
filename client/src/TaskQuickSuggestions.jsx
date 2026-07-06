@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, formatMoney, saveAuthor } from './api';
+import { api, DURATION_LABELS, PRIORITY_LABELS, saveAuthor } from './api';
 
 export default function TaskQuickSuggestions({
   defaultAuthor,
@@ -13,7 +13,6 @@ export default function TaskQuickSuggestions({
   const [loadingTitle, setLoadingTitle] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newReward, setNewReward] = useState('');
   const [savingIdea, setSavingIdea] = useState(false);
   const [addError, setAddError] = useState('');
 
@@ -41,7 +40,7 @@ export default function TaskQuickSuggestions({
           priority: suggestion.priority || 'normal',
           duration: suggestion.duration || 'normal',
           due_at: null,
-          reward: suggestion.reward,
+          task_type: 'normal',
         }),
       });
       saveAuthor(defaultAuthor);
@@ -64,11 +63,11 @@ export default function TaskQuickSuggestions({
         method: 'POST',
         body: JSON.stringify({
           title: newTitle.trim(),
-          reward: newReward === '' ? 0 : Number(newReward) || 0,
+          priority: 'normal',
+          duration: 'normal',
         }),
       });
       setNewTitle('');
-      setNewReward('');
       setShowAdd(false);
       loadSuggestions();
       onSuccess?.('Idée enregistrée');
@@ -87,6 +86,14 @@ export default function TaskQuickSuggestions({
     } catch (err) {
       onSuccess?.(err.message, 'error');
     }
+  }
+
+  function suggestionMeta(suggestion) {
+    const parts = [
+      PRIORITY_LABELS[suggestion.priority || 'normal'],
+      DURATION_LABELS[suggestion.duration || 'normal'],
+    ];
+    return parts.join(' · ');
   }
 
   return (
@@ -116,15 +123,6 @@ export default function TaskQuickSuggestions({
             placeholder="Nom de la tâche"
             required
           />
-          <input
-            type="number"
-            className="input-touch"
-            min="0"
-            step="0.5"
-            value={newReward}
-            onChange={(e) => setNewReward(e.target.value)}
-            placeholder="Rémunération €"
-          />
           <button type="submit" className="btn btn-secondary btn-touch" disabled={savingIdea || !newTitle.trim()}>
             {savingIdea ? '…' : 'Enregistrer l\'idée'}
           </button>
@@ -148,7 +146,7 @@ export default function TaskQuickSuggestions({
                   disabled={isLoading}
                 >
                   {isLoading ? '…' : suggestion.title}
-                  <span className="suggestion-reward">{formatMoney(suggestion.reward)}</span>
+                  <span className="suggestion-reward">{suggestionMeta(suggestion)}</span>
                 </button>
                 {canManage && !suggestion.is_builtin && (
                   <button

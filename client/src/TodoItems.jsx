@@ -3,6 +3,7 @@ import {
   formatDate,
   formatDue,
   formatMoney,
+  formatPercent,
   isOverdue,
   toDatetimeLocal,
   PRIORITY_LABELS,
@@ -48,13 +49,28 @@ export function TodoEditForm({ title, setTitle, description, setDescription, fie
 }
 
 function RewardBadge({ todo }) {
-  const amount = Number(todo.reward) || 0;
-  if (amount <= 0) return null;
+  if (todo.task_type === 'special') {
+    const bonus = Number(todo.fixed_bonus) || 0;
+    if (bonus <= 0) return null;
+    return (
+      <span className={`reward-badge special ${todo.status === 'done' ? 'earned' : 'pending'}`}>
+        ★ {formatMoney(bonus)}
+      </span>
+    );
+  }
+  const pct = Number(todo.reward_percent) || 0;
+  if (pct <= 0) return null;
+  const earned = todo.status === 'done' && Number(todo.earned_amount) > 0;
   return (
     <span className={`reward-badge ${todo.status === 'done' ? 'earned' : 'pending'}`}>
-      {formatMoney(amount)}
+      {earned ? formatMoney(todo.earned_amount) : formatPercent(pct)}
     </span>
   );
+}
+
+function hasRewardDisplay(todo) {
+  if (todo.task_type === 'special') return Number(todo.fixed_bonus) > 0;
+  return Number(todo.reward_percent) > 0 || (todo.status === 'done' && Number(todo.earned_amount) > 0);
 }
 
 function useTodoEditor(todo, onEdit) {
@@ -66,7 +82,8 @@ function useTodoEditor(todo, onEdit) {
     priority: todo.priority || 'normal',
     duration: todo.duration || 'normal',
     due_at: toDatetimeLocal(todo.due_at),
-    reward: todo.reward || 0,
+    task_type: todo.task_type || 'normal',
+    fixed_bonus: todo.fixed_bonus || 0,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -80,7 +97,7 @@ function useTodoEditor(todo, onEdit) {
         description,
         ...fields,
         due_at: fields.due_at || null,
-        reward: fields.reward === '' ? 0 : Number(fields.reward) || 0,
+        fixed_bonus: fields.fixed_bonus === '' ? 0 : Number(fields.fixed_bonus) || 0,
       });
       setEditing(false);
     } catch (err) {
@@ -191,7 +208,7 @@ export function TodoRow({ todo, isAdmin, canValidate, onToggle, onDelete, onEdit
         {todo.description && <p className="todo-desc">{todo.description}</p>}
       </td>
       <td className="col-reward">
-        {Number(todo.reward) > 0 ? <RewardBadge todo={todo} /> : <span className="hint">—</span>}
+        {hasRewardDisplay(todo) ? <RewardBadge todo={todo} /> : <span className="hint">—</span>}
       </td>
       <td className="col-priority">
         <Badge type="priority" value={todo.priority || 'normal'} />
@@ -307,7 +324,7 @@ export function TodoTable({ todos, isAdmin, canValidate, onToggle, onDelete, onE
           <tr>
             {canValidate && <th className="col-check" aria-label="Terminer" />}
             <th>Objectif</th>
-            <th className="col-reward">Gain</th>
+            <th className="col-reward">% / Bonus</th>
             <th className="col-priority">Priorité</th>
             <th className="col-duration">Durée</th>
             <th className="col-due">Échéance</th>

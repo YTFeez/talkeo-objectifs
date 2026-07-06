@@ -5,6 +5,7 @@ import {
   formatDay,
   formatDue,
   formatMoney,
+  formatPercent,
   DURATION_HINTS,
   getStoredAuth,
   saveAuthor,
@@ -37,9 +38,10 @@ function isTaskFilter(f) {
   return f === 'pending' || f === 'done' || f === 'all';
 }
 
-function ObjectiveFields({ values, onChange, compact, showReward }) {
+function ObjectiveFields({ values, onChange, compact, isParent }) {
+  const isSpecial = values.task_type === 'special';
   return (
-    <div className={`objective-fields ${compact ? 'compact' : ''} ${showReward ? 'with-reward' : ''}`}>
+    <div className={`objective-fields ${compact ? 'compact' : ''} ${isParent ? 'with-reward' : ''}`}>
       <label className="field-inline">
         De
         <select value={values.author} onChange={(e) => onChange('author', e.target.value)}>
@@ -68,19 +70,32 @@ function ObjectiveFields({ values, onChange, compact, showReward }) {
         Échéance
         <input type="datetime-local" value={values.due_at} onChange={(e) => onChange('due_at', e.target.value)} />
       </label>
-      {showReward && (
-        <label className="field-inline field-reward">
-          Rémunération (€)
-          <input
-            type="number"
-            className="input-touch"
-            min="0"
-            step="0.5"
-            value={values.reward ?? ''}
-            onChange={(e) => onChange('reward', e.target.value)}
-            placeholder="0"
-          />
-        </label>
+      {isParent && (
+        <>
+          <label className="field-inline">
+            Type
+            <select value={values.task_type || 'normal'} onChange={(e) => onChange('task_type', e.target.value)}>
+              <option value="normal">Normale (% auto)</option>
+              <option value="special">Spéciale (bonus fixe €)</option>
+            </select>
+          </label>
+          {isSpecial ? (
+            <label className="field-inline field-reward">
+              Bonus fixe (€)
+              <input
+                type="number"
+                className="input-touch"
+                min="0"
+                step="0.5"
+                value={values.fixed_bonus ?? ''}
+                onChange={(e) => onChange('fixed_bonus', e.target.value)}
+                placeholder="0"
+              />
+            </label>
+          ) : (
+            <p className="hint field-percent-hint">Le % est calculé selon durée et difficulté.</p>
+          )}
+        </>
       )}
     </div>
   );
@@ -94,7 +109,8 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
     priority: 'normal',
     duration: 'normal',
     due_at: '',
-    reward: '',
+    task_type: 'normal',
+    fixed_bonus: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -118,13 +134,13 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
           description,
           ...fields,
           due_at: fields.due_at || null,
-          reward: fields.reward === '' ? 0 : Number(fields.reward) || 0,
+          fixed_bonus: fields.fixed_bonus === '' ? 0 : Number(fields.fixed_bonus) || 0,
         }),
       });
       saveAuthor(fields.author);
       setTitle('');
       setDescription('');
-      setFields((f) => ({ ...f, due_at: '', reward: '' }));
+      setFields((f) => ({ ...f, due_at: '', fixed_bonus: '' }));
       if (!isMobile && !compact) setOpen(false);
       onAdded();
       onSuccess?.('Objectif ajouté');
@@ -167,11 +183,11 @@ function AddForm({ defaultAuthor, onAdded, isMobile, onSuccess, compact, embedde
           />
         )}
         {(open || isMobile || compact) && (
-          <ObjectiveFields values={fields} onChange={updateField} showReward />
+          <ObjectiveFields values={fields} onChange={updateField} isParent />
         )}
         <div className="add-row">
           {!open && !isMobile && !compact && (
-            <ObjectiveFields values={fields} onChange={updateField} compact showReward />
+            <ObjectiveFields values={fields} onChange={updateField} compact isParent />
           )}
           <button type="submit" className="btn btn-primary btn-touch add-submit" disabled={loading || !title.trim()}>
             {loading ? 'Ajout…' : '+ Ajouter'}
@@ -400,7 +416,7 @@ export default function Dashboard({ auth, onLogout }) {
 
       if (isAdmin) {
         const summary = await api('/rewards/summary');
-        setPocketTotal(summary.current.total);
+        setPocketTotal(summary.current?.total ?? summary.wallet?.economy?.projected_total ?? 0);
       } else {
         setPocketTotal(0);
       }
@@ -501,6 +517,16 @@ export default function Dashboard({ auth, onLogout }) {
     }
   }
 
+  async function handleApplyPercents() {
+    try {
+      await api('/todos/apply-percents', { method: 'POST' });
+      toast('Pourcentages recalculés');
+      loadData();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   async function handleDemoSeed() {
     try {
       const { inserted } = await api('/todos/demo-seed', { method: 'POST' });
@@ -571,7 +597,9 @@ export default function Dashboard({ auth, onLogout }) {
     { id: 'pending', label: 'En attente', count: pendingCount, sub: 'Objectifs à réaliser' },
     { id: 'done', label: 'Terminés', sub: 'Déjà validés' },
     { id: 'events', label: 'Événements', count: eventsCount, sub: 'Agenda familial' },
-    ...(isAdmin ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal), sub: 'Recompte le 1er' }] : []),
+    ...(isAdmin
+      ? [{ id: 'pocket', label: 'Argent de poche', countLabel: formatMoney(pocketTotal), sub: 'Recompte le 1er' }]
+      : [{ id: 'pocket', label: 'Récompenses', sub: 'Idées d\'Aronne' }]),
     { id: 'history', label: 'Historique', sub: '30 derniers jours' },
     ...(isAdmin ? [{ id: 'all', label: 'Tous', sub: 'Vue complète' }] : []),
   ];
@@ -581,7 +609,7 @@ export default function Dashboard({ auth, onLogout }) {
     pending: 'À faire',
     events: 'Événements',
     done: 'Terminés',
-    pocket: 'Argent de poche',
+    pocket: isAdmin ? 'Argent de poche' : 'Récompenses',
     history: 'Historique',
     all: 'Tous les objectifs',
   }[filter];
@@ -599,7 +627,7 @@ export default function Dashboard({ auth, onLogout }) {
     onToggle: handleToggle,
     onDelete: handleDelete,
     onEdit: handleEdit,
-    ObjectiveFields: (props) => <ObjectiveFields {...props} showReward={!isAdmin} />,
+    ObjectiveFields: (props) => <ObjectiveFields {...props} isParent={!isAdmin} />,
   };
 
   const eventListProps = {
@@ -716,7 +744,9 @@ export default function Dashboard({ auth, onLogout }) {
                   {filtered.length} {isEventsView ? `événement${filtered.length !== 1 ? 's' : ''}` : `objectif${filtered.length !== 1 ? 's' : ''}`}
                 </span>
               )}
-              {isPocketView && !loading && <span className="hint">{formatMoney(pocketTotal)} ce mois</span>}
+              {isPocketView && !loading && isAdmin && (
+                <span className="hint">{formatMoney(pocketTotal)} ce mois</span>
+              )}
             </div>
           )}
 
@@ -753,6 +783,15 @@ export default function Dashboard({ auth, onLogout }) {
               />
             )}
 
+            {!isAdmin && filter === 'pending' && (
+              <p className="admin-banner admin-banner-actions">
+                <span>Les % se réajustent à chaque modification. Base : 40 €/mois.</span>
+                <button type="button" className="btn btn-secondary btn-touch" onClick={handleApplyPercents}>
+                  Appliquer maintenant
+                </button>
+              </p>
+            )}
+
             {isAdmin && isTaskFilter(filter) && (
               <p className="admin-banner admin-banner-actions">
                 <span>Charger des tâches d&apos;exemple pour démarrer.</span>
@@ -781,7 +820,7 @@ export default function Dashboard({ auth, onLogout }) {
             ) : isHistoryView ? (
               <HistoryView />
             ) : isPocketView ? (
-              <PocketView key={`${pocketTotal}-${filter}`} isMobile={isMobile} />
+              <PocketView key={`${pocketTotal}-${filter}`} isMobile={isMobile} isAdmin={isAdmin} />
             ) : isEventsView ? (
               <>
                 {loading && <p className="state-msg">Chargement…</p>}
@@ -891,12 +930,12 @@ export default function Dashboard({ auth, onLogout }) {
                 <span>Événements</span>
                 <span className="hint">{eventsCount} à venir</span>
               </button>
-              {isAdmin && (
-                <button type="button" className="more-menu-item accent" onClick={() => navigate('pocket')}>
-                  <span>Argent de poche</span>
-                  <span className="hint">{formatMoney(pocketTotal)} ce mois</span>
-                </button>
-              )}
+              <button type="button" className="more-menu-item accent" onClick={() => navigate('pocket')}>
+                <span>{isAdmin ? 'Argent de poche' : 'Récompenses'}</span>
+                <span className="hint">
+                  {isAdmin ? `${formatMoney(pocketTotal)} ce mois` : 'Idées d\'Aronne'}
+                </span>
+              </button>
               <button type="button" className="more-menu-item" onClick={() => navigate('history')}>
                 <span>Historique</span>
                 <span className="hint">30 derniers jours</span>

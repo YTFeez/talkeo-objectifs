@@ -3,7 +3,7 @@ import db from '../db.js';
 import { authMiddleware, checkRole } from '../auth.js';
 import { hashPassword } from '../credentials.js';
 import { logTodoAction, getHistory } from '../dailyLog.js';
-import { parseReward } from '../rewards.js';
+import { parseFixedBonus, applyPercentDistribution, onTodoCompleted, onTodoReopened } from '../economy.js';
 import { seedDemoTodos } from '../seedTodos.js';
 
 const router = Router();
@@ -25,6 +25,7 @@ function enrichTodo(todo, role) {
     ...todo,
     can_edit: role === 'admin' || (isParent && todo.status === 'pending'),
     can_delete: role === 'admin' || isParent,
+    task_type: todo.task_type || 'normal',
   };
 }
 
@@ -36,8 +37,11 @@ function parseDueAt(value) {
   return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function buildTodoUpdates(body, allowStatus, canEditReward) {
-  const { status, title, description, priority, duration, author, due_at, reward } = body;
+function buildTodoUpdates(body, allowStatus, canEditFields) {
+  const {
+    status, title, description, priority, duration, author, due_at,
+    task_type, fixed_bonus,
+  } = body;
   const updates = [];
   const params = [];
 
@@ -71,14 +75,15 @@ function buildTodoUpdates(body, allowStatus, canEditReward) {
     updates.push('due_at = ?');
     params.push(parsed);
   }
-  if (canEditReward && reward !== undefined) {
-    try {
-      const parsedReward = parseReward(reward);
-      updates.push('reward = ?');
-      params.push(parsedReward);
-    } catch (e) {
-      throw e;
-    }
+  if (canEditFields && task_type !== undefined) {
+    const type = task_type === 'special' ? 'special' : 'normal';
+    updates.push('task_type = ?');
+    params.push(type);
+  }
+  if (canEditFields && fixed_bonus !== undefined) {
+    const bonus = parseFixedBonus(fixed_bonus);
+    updates.push('fixed_bonus = ?');
+    params.push(bonus);
   }
 
   return { updates, params };
@@ -91,7 +96,13 @@ router.get('/history', (req, res) => {
 
 router.post('/demo-seed', checkRole('admin'), (_req, res) => {
   const inserted = seedDemoTodos();
+  applyPercentDistribution();
   res.json({ inserted, ok: true });
+});
+
+router.post('/apply-percents', checkRole('parent'), (_req, res) => {
+  const tasks = applyPercentDistribution();
+  res.json({ ok: true, tasks });
 });
 
 router.get('/', (req, res) => {
@@ -118,7 +129,8 @@ router.post('/', checkRole('parent'), (req, res) => {
     priority = 'normal',
     duration = 'normal',
     due_at,
-    reward = 0,
+    task_type = 'normal',
+    fixed_bonus = 0,
   } = req.body;
 
   if (!title?.trim()) {
@@ -127,6 +139,8 @@ router.post('/', checkRole('parent'), (req, res) => {
 
   const prio = ['low', 'normal', 'high'].includes(priority) ? priority : 'normal';
   const dur = ['short', 'normal', 'long'].includes(duration) ? duration : 'normal';
+  const type = task_type === 'special' ? 'special' : 'normal';
+
   let due = null;
   try {
     due = due_at ? parseDueAt(due_at) : null;
@@ -134,9 +148,9 @@ router.post('/', checkRole('parent'), (req, res) => {
     return res.status(400).json({ error: e.message });
   }
 
-  let rewardAmount = 0;
+  let bonus = 0;
   try {
-    rewardAmount = parseReward(reward);
+    bonus = type === 'special' ? parseFixedBonus(fixed_bonus) : 0;
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -144,12 +158,18 @@ router.post('/', checkRole('parent'), (req, res) => {
   const creatorHash = hashPassword(req.token);
 
   const result = db.prepare(`
-    INSERT INTO todos (title, description, author, priority, duration, due_at, reward, creator_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, rewardAmount, creatorHash);
+    INSERT INTO todos (title, description, author, priority, duration, due_at, task_type, fixed_bonus, reward, creator_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+  `).run(title.trim(), description.trim(), author.trim() || 'Parent', prio, dur, due, type, bonus, creatorHash);
 
   const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid);
   logTodoAction(todo, 'created');
+
+  if (type === 'normal') {
+    applyPercentDistribution();
+    const refreshed = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+    return res.status(201).json({ todo: enrichTodo(refreshed, req.role) });
+  }
 
   res.status(201).json({ todo: enrichTodo(todo, req.role) });
 });
@@ -173,8 +193,7 @@ router.patch('/:id', (req, res) => {
 
   let updates, params;
   try {
-    const canEditReward = canEditContent;
-    ({ updates, params } = buildTodoUpdates(req.body, isParent && wantsStatusChange, canEditReward));
+    ({ updates, params } = buildTodoUpdates(req.body, isParent && wantsStatusChange, canEditContent));
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -186,11 +205,26 @@ router.patch('/:id', (req, res) => {
   params.push(req.params.id);
   db.prepare(`UPDATE todos SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
-  const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
-  const action = req.body.status === 'done' ? 'completed' : 'updated';
-  logTodoAction(updated, action);
+  let updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
+  let economyResult = null;
 
-  res.json({ todo: enrichTodo(updated, req.role) });
+  if (req.body.status === 'done' && todo.status !== 'done') {
+    economyResult = onTodoCompleted(updated);
+    updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
+    logTodoAction(updated, 'completed');
+  } else if (req.body.status === 'pending' && todo.status === 'done') {
+    onTodoReopened(req.params.id);
+    updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
+    logTodoAction(updated, 'updated');
+  } else {
+    if (canEditContent && (updated.task_type || 'normal') === 'normal') {
+      applyPercentDistribution();
+      updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(req.params.id);
+    }
+    logTodoAction(updated, 'updated');
+  }
+
+  res.json({ todo: enrichTodo(updated, req.role), economy: economyResult });
 });
 
 router.delete('/:id', (req, res) => {
@@ -205,6 +239,10 @@ router.delete('/:id', (req, res) => {
   }
 
   db.prepare('DELETE FROM todos WHERE id = ?').run(req.params.id);
+  if ((todo.task_type || 'normal') === 'normal' && todo.status === 'pending') {
+    applyPercentDistribution();
+  }
+
   res.json({ ok: true });
 });
 

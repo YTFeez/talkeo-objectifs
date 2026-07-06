@@ -9,8 +9,13 @@ import todoRoutes from './routes/todos.js';
 import eventRoutes from './routes/events.js';
 import rewardRoutes from './routes/rewards.js';
 import suggestionRoutes from './routes/suggestions.js';
+import walletRoutes from './routes/wallet.js';
+import rewardRequestRoutes from './routes/rewardRequests.js';
 import './seedTodos.js';
 import './seedSuggestions.js';
+import { applyPercentDistribution } from './economy.js';
+
+applyPercentDistribution();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +34,8 @@ app.use('/api/todos', todoRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use('/api/suggestions', suggestionRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/reward-requests', rewardRequestRoutes);
 
 function resolveClientDist() {
   const candidates = [
