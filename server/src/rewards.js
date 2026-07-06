@@ -1,4 +1,4 @@
-import { getWalletSummary, getMonthEconomy, currentMonthKey, formatMonthLabel } from '../economy.js';
+import { getWalletSummary, getMonthEconomy, currentMonthKey, formatMonthLabel } from './economy.js';
 
 export { currentMonthKey, formatMonthLabel, getMonthEconomy };
 
