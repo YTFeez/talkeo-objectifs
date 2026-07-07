@@ -110,7 +110,24 @@ db.exec(`
     best_strike INTEGER NOT NULL DEFAULT 0,
     current_balance REAL NOT NULL DEFAULT 0,
     savings_balance REAL NOT NULL DEFAULT 0,
-    savings_rate_percent REAL NOT NULL DEFAULT 20
+    savings_rate_percent REAL NOT NULL DEFAULT 20,
+    vouchers_balance INTEGER NOT NULL DEFAULT 0
+  )
+`);
+
+const profileCols = db.prepare('PRAGMA table_info(child_profile)').all().map((c) => c.name);
+if (!profileCols.includes('vouchers_balance')) {
+  db.exec('ALTER TABLE child_profile ADD COLUMN vouchers_balance INTEGER NOT NULL DEFAULT 0');
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS voucher_redemptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_title TEXT NOT NULL,
+    note TEXT DEFAULT '',
+    level_at_redemption INTEGER NOT NULL,
+    redeemed_by TEXT NOT NULL DEFAULT 'Parent',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
 

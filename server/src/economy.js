@@ -9,7 +9,7 @@ const PRIORITY_WEIGHT = { low: 1, normal: 2, high: 3 };
 
 const XP_STRIKE_BONUS = 5;
 const LEVEL_STEP = 100;
-const REWARD_LEVEL_INTERVAL = 5;
+export const REWARD_LEVEL_INTERVAL = 5;
 const STRIKE_BONUS_PER = 0.5;
 const STRIKE_MAX_BONUS = 10;
 const REACTIVE_HOURS = 48;
@@ -108,8 +108,8 @@ export function getChildProfile() {
   let row = db.prepare('SELECT * FROM child_profile WHERE id = 1').get();
   if (!row) {
     db.prepare(`
-      INSERT INTO child_profile (id, xp, level, current_strike, best_strike, current_balance, savings_balance, savings_rate_percent)
-      VALUES (1, 0, 1, 0, 0, 0, 0, 20)
+      INSERT INTO child_profile (id, xp, level, current_strike, best_strike, current_balance, savings_balance, savings_rate_percent, vouchers_balance)
+      VALUES (1, 0, 1, 0, 0, 0, 0, 20, 0)
     `).run();
     row = db.prepare('SELECT * FROM child_profile WHERE id = 1').get();
   }
@@ -123,6 +123,14 @@ export function xpToLevel(xp) {
 export function xpProgress(xp) {
   const inLevel = xp % LEVEL_STEP;
   return { current: inLevel, max: LEVEL_STEP, percent: round2((inLevel / LEVEL_STEP) * 100) };
+}
+
+export function vouchersEarnedBetweenLevels(oldLevel, newLevel) {
+  let count = 0;
+  for (let level = oldLevel + 1; level <= newLevel; level += 1) {
+    if (level % REWARD_LEVEL_INTERVAL === 0) count += 1;
+  }
+  return count;
 }
 
 function isReactiveCompletion(todo) {
@@ -166,9 +174,24 @@ export function awardXp(todo, strikeBonus = 0) {
   const profile = getChildProfile();
   const gained = baseXp + strikeBonus;
   const newXp = profile.xp + gained;
+  const oldLevel = profile.level;
   const newLevel = xpToLevel(newXp);
-  db.prepare('UPDATE child_profile SET xp = ?, level = ? WHERE id = 1').run(newXp, newLevel);
-  return { gained, base_xp: baseXp, xp: newXp, level: newLevel, leveled_up: newLevel > profile.level };
+  const vouchersGranted = vouchersEarnedBetweenLevels(oldLevel, newLevel);
+
+  db.prepare(`
+    UPDATE child_profile
+    SET xp = ?, level = ?, vouchers_balance = vouchers_balance + ?
+    WHERE id = 1
+  `).run(newXp, newLevel, vouchersGranted);
+
+  return {
+    gained,
+    base_xp: baseXp,
+    xp: newXp,
+    level: newLevel,
+    leveled_up: newLevel > oldLevel,
+    vouchers_granted: vouchersGranted,
+  };
 }
 
 function creditEarnings(amount, note, type = 'task_reward') {
@@ -315,6 +338,7 @@ export function getWalletSummary() {
       savings_rate_percent: profile.savings_rate_percent,
       total_earned: getTotalEarned(),
       goals_reserved: getGoalsReservedTotal(),
+      vouchers_balance: profile.vouchers_balance || 0,
       next_reward_level: nextRewardLevel,
       reward_level_interval: REWARD_LEVEL_INTERVAL,
     },

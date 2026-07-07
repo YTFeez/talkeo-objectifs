@@ -14,8 +14,10 @@ import goalRoutes from './routes/goals.js';
 import notificationRoutes from './routes/notifications.js';
 import achievementRoutes from './routes/achievements.js';
 import archiveRoutes from './routes/archive.js';
+import voucherRoutes from './routes/vouchers.js';
 import './seedTodos.js';
 import './archive.js';
+import './vouchers.js';
 import { applyPercentDistribution } from './economy.js';
 
 applyPercentDistribution();
@@ -42,6 +44,7 @@ app.use('/api/goals', goalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/archive', archiveRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 function resolveClientDist() {
   const candidates = [

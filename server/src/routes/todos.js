@@ -155,6 +155,15 @@ function validateTodo(todo) {
     body: updated.title,
     target_role: 'admin',
   });
+  if (economyResult.xp?.vouchers_granted > 0) {
+    const profile = economyResult.xp;
+    createNotification({
+      type: 'voucher_earned',
+      title: 'Nouveau bon ! 🎟',
+      body: `Niveau ${profile.level} atteint — +${economyResult.xp.vouchers_granted} bon`,
+      target_role: 'admin',
+    });
+  }
   const repeated = createRepeatTask(todo);
   return { updated, economyResult, achievements, repeated };
 }

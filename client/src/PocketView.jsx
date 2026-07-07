@@ -151,15 +151,24 @@ function XpPanel({ profile, isChild, onRefresh }) {
   const [ideaTitle, setIdeaTitle] = useState('');
   const [ideaDesc, setIdeaDesc] = useState('');
   const [requests, setRequests] = useState([]);
+  const [vouchers, setVouchers] = useState(null);
+  const [redeemItem, setRedeemItem] = useState('');
+  const [redeemNote, setRedeemNote] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadRequests = useCallback(() => {
     api('/reward-requests').then((d) => setRequests(d.requests)).catch(() => setRequests([]));
   }, []);
 
+  const loadVouchers = useCallback(() => {
+    api('/vouchers').then(setVouchers).catch(() => setVouchers(null));
+  }, []);
+
   useEffect(() => {
     loadRequests();
-  }, [loadRequests]);
+    loadVouchers();
+  }, [loadRequests, loadVouchers]);
 
   async function submitIdea(e) {
     e.preventDefault();
@@ -188,6 +197,27 @@ function XpPanel({ profile, isChild, onRefresh }) {
     loadRequests();
   }
 
+  async function redeemVoucher(e) {
+    e.preventDefault();
+    if (!redeemItem.trim()) return;
+    setRedeeming(true);
+    try {
+      await api('/vouchers/redeem', {
+        method: 'POST',
+        body: JSON.stringify({ item: redeemItem, note: redeemNote }),
+      });
+      setRedeemItem('');
+      setRedeemNote('');
+      loadVouchers();
+      onRefresh?.();
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
+  const balance = vouchers?.balance ?? profile.vouchers_balance ?? 0;
+  const nextLevel = vouchers?.next_voucher_level ?? profile.next_reward_level;
+
   return (
     <section className="wallet-section">
       <h3 className="wallet-section-title">Niveau {profile.level}</h3>
@@ -196,8 +226,63 @@ function XpPanel({ profile, isChild, onRefresh }) {
       </div>
       <p className="hint xp-meta">
         {profile.xp_progress.current} / {profile.xp_progress.max} XP
-        · récompense tous les {profile.reward_level_interval} niveaux (prochain : niv. {profile.next_reward_level})
+        · prochain bon au niveau {nextLevel}
       </p>
+
+      <div className="voucher-counter-card">
+        <div className="voucher-counter-main">
+          <span className="voucher-counter-icon" aria-hidden>🎟</span>
+          <div>
+            <span className="voucher-counter-value">{balance}</span>
+            <span className="voucher-counter-label">bon{balance !== 1 ? 's' : ''} disponible{balance !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <p className="hint voucher-counter-hint">
+          1 bon tous les {profile.reward_level_interval} niveaux (5, 10, 15…).
+          Échangeable contre une petite récompense : 2 Monsters, billet airsoft, snack…
+        </p>
+      </div>
+
+      {!isChild && balance > 0 && (
+        <form className="voucher-redeem-form" onSubmit={redeemVoucher}>
+          <p className="wallet-section-sub">Utiliser un bon (parents)</p>
+          <input
+            className="input-touch"
+            value={redeemItem}
+            onChange={(e) => setRedeemItem(e.target.value)}
+            placeholder="Ex : 2 Monsters, billet airsoft…"
+            required
+          />
+          <input
+            className="input-touch"
+            value={redeemNote}
+            onChange={(e) => setRedeemNote(e.target.value)}
+            placeholder="Commentaire (optionnel)"
+          />
+          <button type="submit" className="btn btn-primary btn-touch" disabled={redeeming}>
+            {redeeming ? '…' : 'Valider — retirer 1 bon'}
+          </button>
+        </form>
+      )}
+
+      {!isChild && balance === 0 && (
+        <p className="hint">Aucun bon à utiliser pour le moment.</p>
+      )}
+
+      {vouchers?.redemptions?.length > 0 && (
+        <div className="voucher-history">
+          <p className="wallet-section-sub">Bons utilisés</p>
+          <ul className="voucher-history-list">
+            {vouchers.redemptions.map((r) => (
+              <li key={r.id} className="voucher-history-item">
+                <strong>{r.item_title}</strong>
+                {r.note && <span className="hint"> — {r.note}</span>}
+                <p className="hint">{formatDate(r.created_at)} · niv. {r.level_at_redemption}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {isChild && (
         <form className="reward-idea-form" onSubmit={submitIdea}>
